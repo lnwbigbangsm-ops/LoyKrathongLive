@@ -1,0 +1,16 @@
+You are designing game sprites of Thai "krathong" (floating offerings for the Loy Krathong festival) for a night-river game shown on a phone screen.
+Use your image generation tool. Make ONE image per item in the list below, each 1024x1024, and save each as a PNG in the current folder with exactly the file name given.
+
+Rules for every image:
+- One single krathong, centred, filling about 80% of the frame width, seen from a 3/4 front view slightly from above (we see the front rim and the top with the flowers).
+- Rich, polished, hand-painted game-art style with clear shapes, warm rim light as if lit by its own candle, luxurious and festive, readable when shrunk to 150 px wide. Same style and same viewing angle for all items so they look like one set.
+- A traditional Thai krathong: round base, folded banana-leaf petals arranged like a lotus crown around the rim, fresh flowers on top, exactly ONE lit candle standing upright in the exact horizontal centre with a small bright flame, and three thin incense sticks next to it.
+- Background: flat pure magenta #FF00FF filling the whole frame, perfectly uniform. No water, no ripples, no reflection, no ground shadow, no glow halo, no sparkles, no smoke, no text, no border. Nothing in the krathong may be magenta or hot pink close to magenta.
+- Keep the whole krathong, candle flame and incense sticks fully inside the frame with a margin.
+- Copy only the exact file path your own image generation call returned for that item into the current folder; never pick "the newest file" from a shared folder, other jobs are running in parallel.
+- When finished, list the saved files. Do not create any other files.
+
+Items:
+1. krathong-red.png — festive: green banana-leaf crown with red roses and orange marigolds, yellow candle.
+2. krathong-gold.png — the special royal krathong, clearly grander than a normal one: three tall tiers of shining gold-leaf petals with fine Thai "kanok" flame patterns, golden lotus, garlands of marigold and jasmine hanging from the rim, small gold tiered-umbrella ornaments beside the single central candle. Rich gold and warm amber, looks precious.
+3. krathong-star.png — the magical "star" krathong: translucent pale-blue and silver crystal lotus petals, small white star-shaped flowers, silver beads, a white candle with a pale-gold flame. Cool moonlit colours.

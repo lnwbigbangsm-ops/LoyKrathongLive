@@ -1,0 +1,1188 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ลอยกระทงสู่ดวงดาว</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --gold:#ffd27a; --ink:#05060f; --panel:#0e1126; --line:#262b52; --text:#e8e6f5; --mute:#9aa0c8; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--ink); color:var(--text); font-family:Kanit,'Leelawadee UI',Tahoma,sans-serif;
+         display:flex; height:100vh; overflow:hidden; }
+  #stageWrap { height:100vh; aspect-ratio:9/16; flex:none; background:#000; }
+  canvas { width:100%; height:100%; display:block; }
+  #panel { flex:1; min-width:340px; overflow:auto; padding:14px 16px 40px; background:var(--panel); border-left:1px solid var(--line); }
+  body.hide #panel { display:none; }
+  body.hide { justify-content:center; }
+  h1 { font-size:18px; margin:0 0 4px; color:var(--gold); font-weight:600; }
+  .hint { font-size:12px; color:var(--mute); margin:0 0 10px; line-height:1.5; }
+  fieldset { border:1px solid var(--line); border-radius:10px; margin:0 0 12px; padding:10px 12px 12px; }
+  legend { font-size:13px; color:var(--gold); padding:0 6px; }
+  input[type=text], input[type=number] { width:100%; padding:8px 10px; margin:0 0 8px; border-radius:8px; border:1px solid var(--line);
+         background:#070919; color:var(--text); font:inherit; font-size:15px; }
+  input:focus { outline:2px solid var(--gold); outline-offset:0; }
+  button { font:inherit; font-size:14px; padding:8px 12px; border-radius:8px; border:1px solid var(--line); background:#1a1f45;
+           color:var(--text); cursor:pointer; margin:0 6px 6px 0; }
+  button:hover { background:#252b5e; }
+  button.main { background:#b9791c; border-color:#e0a23c; color:#fff; font-weight:500; }
+  button.main:hover { background:#d08a22; }
+  button.danger { background:#4a1a26; border-color:#7a2b3d; }
+  label.chk { font-size:13px; display:inline-flex; gap:6px; align-items:center; margin:0 12px 8px 0; cursor:pointer; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .stat { font-size:13px; color:var(--mute); }
+  .stat b { color:var(--text); font-weight:500; }
+  #log { font-size:12px; color:var(--mute); line-height:1.6; max-height:150px; overflow:auto; }
+  #log div { border-bottom:1px dashed var(--line); padding:2px 0; }
+  kbd { background:#070919; border:1px solid var(--line); border-radius:4px; padding:0 5px; font:inherit; font-size:11px; }
+</style>
+</head>
+<body>
+<div id="stageWrap"><canvas id="c" width="1080" height="1920"></canvas></div>
+
+<div id="panel">
+  <h1>แผงควบคุม · ลอยกระทงสู่ดวงดาว</h1>
+  <p class="hint">จับภาพเฉพาะจอแนวตั้งด้านซ้ายไปออกไลฟ์ แผงนี้คนดูไม่เห็น · กด <kbd>H</kbd> ซ่อน/แสดงแผง</p>
+
+  <fieldset>
+    <legend>0 · ดึงคอมเมนต์จาก TikTok</legend>
+    <div class="stat" style="margin-bottom:8px"><span id="ttDot" style="color:#777">●</span> <b id="ttStatus">ยังไม่ได้เปิดตัวเชื่อม (เปิด start-live.bat)</b></div>
+    <div class="row">
+      <label class="chk"><input type="radio" name="ttMode" value="off"> ปิด</label>
+      <label class="chk"><input type="radio" name="ttMode" value="approve"> อนุมัติก่อนลอย</label>
+      <label class="chk"><input type="radio" name="ttMode" value="auto" checked> ลอยอัตโนมัติ</label>
+      <label class="chk"><input type="checkbox" id="ttFilter"> กรองคำหยาบ/สแปม</label>
+    </div>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="ttLike" checked> ไลก์เติมแสงจันทร์</label>
+      <label class="chk"><input type="checkbox" id="ttGift" checked> กิจกรรมของขวัญ</label>
+      <label class="chk"><input type="checkbox" id="ttStar" checked> พิมพ์ "สอยดาว" = สอยดาว</label>
+    </div>
+    <div class="row"><span class="stat">สุ่มสอยดาวให้ 1 ใน</span>
+      <input type="number" id="ttRand" min="0" max="50" step="1" style="width:80px;margin:0"><span class="stat">คอมเมนต์ (0 = ไม่สุ่ม)</span></div>
+    <input type="text" id="ttBlock" placeholder="คำต้องห้ามเพิ่มเติม คั่นด้วยจุลภาค" autocomplete="off">
+    <div class="stat">รออนุมัติ <b id="ttPendN">0</b> · รับแล้ว <b id="ttIn">0</b> · กรองทิ้ง <b id="ttDrop">0</b>
+      <button id="ttAll" style="margin-left:8px;padding:3px 10px">ลอยทั้งหมด</button><button id="ttNone" style="padding:3px 10px">ล้าง</button></div>
+    <div id="ttPend" style="max-height:230px;overflow:auto;margin-top:6px"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>1 · ลอยกระทง (อ่านคอมเมนต์แล้วพิมพ์)</legend>
+    <input type="text" id="kName" placeholder="ชื่อคนดู" maxlength="24" autocomplete="off">
+    <input type="text" id="kWish" placeholder="คำอธิษฐาน (กด Enter เพื่อลอย)" maxlength="70" autocomplete="off">
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="kGold"> กระทงทอง</label>
+      <button class="main" id="btnFloat">ลอยกระทง ⏎</button>
+    </div>
+    <div class="stat">รอคิว <b id="qCount">0</b> · บนน้ำ <b id="onWater">0</b> · คืนนี้รวม <b id="total">0</b></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>2 · สอยดาวคำทำนาย (ฟรี ไม่มีรางวัล)</legend>
+    <input type="text" id="sName" placeholder="ชื่อคนดู (กด Enter เพื่อสอย)" maxlength="24" autocomplete="off">
+    <button class="main" id="btnStar">สอยดาว ⭐</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>3 · แสงจันทร์ (เป้าหมายรวมของห้อง)</legend>
+    <div class="row">
+      <button data-moon="10">+10</button><button data-moon="50">+50</button><button data-moon="100">+100</button>
+      <button id="btnFull">เต็มดวงทันที</button>
+    </div>
+    <div class="row">
+      <span class="stat">เป้า</span>
+      <input type="number" id="moonTarget" min="10" step="10" style="width:110px;margin:0">
+      <span class="stat">ตอนนี้ <b id="moonNow">0</b> · เต็มดวงแล้ว <b id="rounds">0</b> รอบ</span>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>4 · เอฟเฟกต์</legend>
+    <button id="btnFire">พลุ <kbd>F</kbd></button>
+    <button id="btnLantern">ปล่อยโคมลอย <kbd>L</kbd></button>
+  </fieldset>
+
+  <fieldset>
+    <legend>ของขวัญ (อัตโนมัติจาก TikTok · กดเองได้)</legend>
+    <input type="text" id="gName" placeholder="ชื่อคนส่งของขวัญ" maxlength="24" autocomplete="off">
+    <div class="row">
+      <button data-gift="1">🌹 กระทงทอง (1+)</button><button data-gift="5">✨ ฝนดาวตก (5+)</button>
+      <button data-gift="10">🏮 โคมลอย (10+)</button><button data-gift="30">🪷 ขบวนกระทง (30+)</button>
+      <button data-gift="99">🎆 พลุใหญ่ (99+)</button><button data-gift="199">💖 พลุหัวใจ (199+)</button>
+      <button data-gift="500">🌕 จันทร์เต็มดวง (500+)</button><button data-gift="1000">🐉 พญานาค (1000+)</button>
+    </div>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="gLegend" checked> แสดงป้ายบอกของขวัญบนจอ</label>
+      <label class="chk"><input type="checkbox" id="gBoard" checked> แสดง 3 อันดับผู้สนับสนุน</label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>5 · ควิซลอยกระทง</legend>
+    <div class="row">
+      <button id="btnQNext">ถามข้อถัดไป <kbd>Q</kbd></button>
+      <button id="btnQRand">สุ่มข้อ</button>
+      <button id="btnQReveal">เฉลย</button>
+      <button id="btnQClose">ปิดควิซ</button>
+    </div>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="qOn" checked> ออกควิซเองทุก</label>
+      <input type="number" id="qEvery" min="1" max="120" step="1" style="width:76px;margin:0"><span class="stat">นาที · เวลาตอบ</span>
+      <input type="number" id="qTime" min="5" max="120" step="5" style="width:76px;margin:0"><span class="stat">วินาที</span>
+    </div>
+    <div class="stat" id="qInfo" style="margin-bottom:8px">ยังไม่ได้เปิดควิซ</div>
+    <input type="text" id="wName" placeholder="ชื่อผู้ตอบถูกคนแรก (Enter = มอบกระทงทอง)" maxlength="24" autocomplete="off">
+  </fieldset>
+
+  <fieldset>
+    <legend>ตั้งค่า</legend>
+    <label class="chk"><input type="checkbox" id="snd" checked> เสียงเอฟเฟกต์</label>
+    <label class="chk"><input type="checkbox" id="light"> โหมดเบาเครื่อง</label>
+    <div class="row"><span class="stat">กระทงลอยถึงขอบฟ้าใน</span>
+      <input type="number" id="dur" min="20" max="240" step="5" style="width:90px;margin:0"><span class="stat">วินาที (มาก = ช้า)</span></div>
+    <span class="stat">ความลื่น <b id="fps">–</b> เฟรม/วินาที</span>
+    <div class="row">
+      <button id="btnHide">ซ่อนแผง <kbd>H</kbd></button>
+      <button id="btnDemo">ทดสอบก่อนไลฟ์ (กระทงตัวอย่าง)</button>
+      <button id="btnClear">ล้างจอ</button>
+      <button class="danger" id="btnReset">รีเซ็ตคืนนี้</button>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>ล่าสุด</legend>
+    <div id="log"></div>
+  </fieldset>
+</div>
+
+<script>
+(() => {
+'use strict';
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const W = 1080, H = 1920, HZ = 790;           // HZ = เส้นขอบฟ้า
+const MOON = { x: 800, y: 405, r: 126 };
+const FONT = "Kanit,'Leelawadee UI',Tahoma,sans-serif";
+const $ = id => document.getElementById(id);
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[(Math.random() * arr.length) | 0];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+
+const FORTUNES = [
+  'ปีหน้ามีเรื่องให้ยิ้มกว้างกว่าปีนี้', 'สิ่งที่รออยู่ กำลังเดินทางมาหาแล้ว', 'งานที่ตั้งใจจะเห็นผลเร็ว ๆ นี้',
+  'จะได้เจอคนที่ทำให้ใจเบาขึ้น', 'ความเหนื่อยปีนี้จะกลายเป็นของขวัญ', 'มีข่าวดีจากทางไกล',
+  'สุขภาพแข็งแรง นอนหลับฝันดีทุกคืน', 'การเงินคล่องตัว หยิบจับอะไรก็ลื่นไหล', 'คนที่คิดถึง เขาก็คิดถึงเราอยู่',
+  'เรื่องที่กังวลจะคลี่คลายเอง', 'จะได้ไปเที่ยวที่ที่อยากไปมานาน', 'มีคนแอบชื่นชมอยู่เงียบ ๆ',
+  'ครอบครัวอบอุ่น กินข้าวพร้อมหน้ากันบ่อยขึ้น', 'โอกาสใหม่มาแบบไม่ทันตั้งตัว เตรียมรับไว้', 'ปล่อยเรื่องเก่าไปกับสายน้ำ เริ่มใหม่ได้เลย',
+  'ความพยายามเล็ก ๆ ทุกวันกำลังจะออกดอก', 'จะได้ของที่อยากได้โดยไม่ต้องแย่งใคร', 'มิตรภาพดี ๆ กำลังจะเข้ามา',
+  'เดินทางปลอดภัย ไปไหนก็มีคนเอ็นดู', 'ใจสงบขึ้น เรื่องวุ่น ๆ ทำอะไรเราไม่ได้', 'ฝีมือจะมีคนเห็นและให้คุณค่า',
+  'สิ่งที่ทำหายจะได้คืนในรูปแบบที่ดีกว่า', 'ยิ้มของคุณจะเปลี่ยนวันของใครบางคน', 'คืนนี้พระจันทร์ฟังคำขอของคุณอยู่',
+  'โชคลาภกำลังเดินทางมา เตรียมกระเป๋าไว้เลย',
+  'ปีหน้าได้จับเงินก้อนโต',
+  'จะมีคนพาไปกินของอร่อย',
+  'ความรักที่รออยู่ ใกล้กว่าที่คิด',
+  'คนโสดมีเกณฑ์เจอคนถูกใจ',
+  'คนมีคู่ รักมั่นคงขึ้นทุกวัน',
+  'งานใหม่ที่ดีกว่ากำลังมองหาคุณอยู่',
+  'เจ้านายเมตตา เพื่อนร่วมงานเกื้อหนุน',
+  'ค้าขายคล่อง ลูกค้าเข้าไม่ขาดสาย',
+  'หนี้สินเบาลง ใจเบาขึ้น',
+  'ได้รับของขวัญที่ไม่คาดคิด',
+  'เรื่องที่ขอไว้ มีลุ้นสมหวังก่อนสิ้นปี',
+  'สอบผ่านฉลุย ทำอะไรก็ราบรื่น',
+  'ผู้ใหญ่ให้การสนับสนุน',
+  'จะได้ยินคำว่า ยินดีด้วยนะ เร็ว ๆ นี้',
+  'คนที่เคยเข้าใจผิด จะกลับมาเข้าใจกัน',
+  'บ้านอบอุ่น มีเสียงหัวเราะทุกวัน',
+  'พ่อแม่สุขภาพแข็งแรง อยู่ด้วยกันไปนาน ๆ',
+  'ลูกหลานเป็นคนดี นำความภูมิใจมาให้',
+  'สัตว์เลี้ยงที่รักแข็งแรง อยู่คู่กันอีกนาน',
+  'หายเหนื่อยเร็ว ๆ นี้ ได้พักอย่างที่ฝัน',
+  'น้ำหนักลงตามเป้า สุขภาพดีขึ้นชัดเจน',
+  'นอนหลับสนิท ตื่นมาสดชื่นทุกเช้า',
+  'โรคภัยห่างไกล หมอบอกว่าปกติดี',
+  'ความฝันที่เก็บไว้ ได้เริ่มลงมือทำเสียที',
+  'ไอเดียที่คิดไว้ จะกลายเป็นรายได้',
+  'มีคนเห็นคุณค่าในสิ่งที่คุณทำ',
+  'ทักษะใหม่ที่ฝึกอยู่ จะพาไปได้ไกล',
+  'ได้เดินทางไกลแบบมีความสุข',
+  'ทริปหน้า อากาศดี รูปสวยทุกใบ',
+  'เจอมิตรแท้ในที่ที่ไม่คาดคิด',
+  'เพื่อนเก่าจะติดต่อกลับมาพร้อมข่าวดี',
+  'ของที่อยากได้ ลดราคาพอดี',
+  'ถูกรางวัลเล็ก ๆ ให้ชื่นใจ',
+  'เงินเข้ามากกว่าเงินออก',
+  'เก็บเงินได้ตามเป้าที่ตั้งไว้',
+  'ใจเย็นขึ้น แก้ปัญหาได้ทุกเรื่อง',
+  'เรื่องร้ายกลายเป็นดี',
+  'อุปสรรคปีนี้ คือบันไดของปีหน้า',
+  'คำพูดของคุณจะช่วยใครบางคนไว้',
+  'ทำดีแล้วจะมีคนเห็น',
+  'บุญเก่าส่งผล มีคนคอยช่วยเสมอ',
+  'สายน้ำพาเรื่องเศร้าไป เหลือแต่เรื่องดี',
+  'พระจันทร์คืนนี้เป็นพยาน ขออะไรก็ได้ดั่งใจ',
+  'รอยยิ้มจะกลับมาอยู่บนหน้าคุณบ่อยขึ้น',
+  'ปีหน้าเป็นปีของคุณ',
+  'ก้าวต่อไปคือก้าวที่ถูกต้อง มั่นใจได้เลย',
+  'สิ่งที่ใช่ จะมาในเวลาที่ใช่'
+];
+let fBag = [];
+function nextFortune() { if (!fBag.length) fBag = FORTUNES.slice().sort(() => Math.random() - 0.5); return fBag.pop(); }
+// [คำถาม, เฉลย, คำที่นับว่าตอบถูก]  ("=x" คือต้องพิมพ์ x ตรงตัวทั้งข้อความ)
+const QUIZ = [
+  ['วันลอยกระทงตรงกับวันขึ้น 15 ค่ำ เดือนอะไร?', 'เดือน 12', ['12', 'สิบสอง']],
+  ['เราลอยกระทงเพื่อขอขมาและขอบคุณพระแม่อะไร?', 'พระแม่คงคา', ['คงคา']],
+  ['คืนวันลอยกระทง พระจันทร์เป็นแบบไหน?', 'พระจันทร์เต็มดวง', ['เต็ม']],
+  ['ของ 3 อย่างบนกระทง มีดอกไม้ ธูป และอะไร?', 'เทียน', ['เทียน']],
+  ['กระทงแบบดั้งเดิมนิยมทำฐานจากต้นอะไร?', 'ต้นกล้วย (หยวกกล้วย)', ['กล้วย']],
+  ['กลีบกระทงสีเขียวพับจากใบอะไร?', 'ใบตอง', ['ตอง', 'กล้วย']],
+  ['ดอกไม้สีเหลืองส้มที่นิยมใช้แต่งกระทงคือดอกอะไร?', 'ดอกดาวเรือง', ['ดาวเรือง']],
+  ['ธูปที่ปักบนกระทงนิยมใช้กี่ดอก?', '3 ดอก', ['สาม', '3 ดอก', '3ดอก', '=3']],
+  ['ปกติวันลอยกระทงจะอยู่ในเดือนอะไรของปฏิทินสากล?', 'พฤศจิกายน', ['พฤศจิ', 'พ.ย', 'พย']],
+  ['ปีนี้ (2569) วันลอยกระทงตรงกับวันที่เท่าไร?', '24 พฤศจิกายน', ['24']],
+  ['คำว่า "วันเพ็ญ" หมายถึงวันที่พระจันทร์เป็นอย่างไร?', 'พระจันทร์เต็มดวง (ขึ้น 15 ค่ำ)', ['เต็ม', '15', 'สิบห้า']],
+  ['ตามตำนาน ใครเป็นผู้ประดิษฐ์กระทงรูปดอกบัว?', 'นางนพมาศ', ['นพมาศ']],
+  ['ตามตำนาน นางนพมาศอยู่ในสมัยอาณาจักรใด?', 'สุโขทัย', ['สุโขทัย']],
+  ['การประกวดสาวงามในงานลอยกระทง เรียกว่าประกวดอะไร?', 'ประกวดนางนพมาศ', ['นพมาศ']],
+  ['งาน "เผาเทียน เล่นไฟ" จัดที่จังหวัดใด?', 'จังหวัดสุโขทัย', ['สุโขทัย']],
+  ['งาน "ลอยกระทงสาย" โด่งดังที่จังหวัดใด?', 'จังหวัดตาก', ['ตาก']],
+  ['กระทงสายของจังหวัดตาก ใช้อะไรทำเป็นตัวกระทง?', 'กะลามะพร้าว', ['กะลา', 'มะพร้าว']],
+  ['ประเพณี "ยี่เป็ง" เป็นของภาคใด?', 'ภาคเหนือ', ['เหนือ']],
+  ['จังหวัดใดขึ้นชื่อเรื่องงานยี่เป็ง มีโคมลอยเต็มท้องฟ้า?', 'เชียงใหม่', ['เชียงใหม่']],
+  ['คำว่า "ยี่" ใน "ยี่เป็ง" แปลว่าอะไร?', 'สอง (เดือนสองของล้านนา)', ['สอง', '=2']],
+  ['คำว่า "เป็ง" ใน "ยี่เป็ง" แปลว่าอะไร?', 'เพ็ญ หรือพระจันทร์เต็มดวง', ['เพ็ญ', 'เต็ม']],
+  ['ช่วงยี่เป็ง ชาวล้านนานิยมแขวนอะไรประดับบ้านและวัด?', 'โคม', ['โคม']],
+  ['ช่วงลอยกระทง น้ำในแม่น้ำลำคลองมักเป็นอย่างไร?', 'น้ำมาก เต็มตลิ่ง', ['เต็ม', 'นอง', 'หลาก', 'มาก', 'เยอะ']],
+  ['กระทงขนมปังทำมาเพื่อให้สัตว์อะไรกิน?', 'ปลา', ['ปลา']],
+  ['วัสดุอะไรไม่ควรใช้ทำกระทง เพราะไม่ย่อยสลาย?', 'โฟม', ['โฟม', 'พลาสติก']],
+  ['กระทงน้ำแข็งดีต่อแม่น้ำอย่างไร?', 'ละลายหมด ไม่เหลือขยะ', ['ละลาย', 'ขยะ']],
+  ['เช้าวันรุ่งขึ้นหลังลอยกระทง ปัญหาใหญ่ในแม่น้ำคืออะไร?', 'ขยะจากกระทง', ['ขยะ']],
+  ['หลายคนใส่อะไรลงในกระทงเพื่อลอยเคราะห์? (ตอบได้หลายอย่าง)', 'เหรียญ เล็บ หรือเส้นผม', ['เหรียญ', 'เล็บ', 'ผม', 'เงิน']],
+  ['สัตว์ในตำนานที่เชื่อว่าอาศัยและคุ้มครองแม่น้ำคืออะไร?', 'พญานาค', ['นาค']],
+  ['"ลอยกระทง" เขียนเป็นภาษาอังกฤษว่าอะไร?', 'Loy Krathong', ['loy', 'loi']]
+];
+const PETALS = ['#ff8fb1', '#ffb347', '#f4f1ff', '#c79bff', '#ff6f6f', '#7fd6c2'];
+const LANES = [-360, -180, 0, 180, 360];
+const DEMO = [
+  ['น้องมายด์', 'ขอให้สอบติดคณะที่หวัง'], ['พี่ต้น', 'ขอให้แม่หายป่วยไว ๆ'], ['Aom_22', 'ปีหน้าขอมีแฟน'],
+  ['ลุงหนวด', 'ขอให้ค้าขายร่ำรวย'], ['Fah', 'ขอให้ทุกคนในบ้านแข็งแรง'], ['บอส', 'ขอให้ได้งานใหม่ที่ดีกว่าเดิม']
+];
+
+/* ---------- state ---------- */
+const S = {
+  T: 0, krathongs: [], queue: [], spawnCd: 0, laneIdx: 0,
+  stars: [], lanterns: [], parts: [], rockets: [], booms: [], nagas: [], smokes: [], risers: [], flashes: [], shoots: [],
+  evQueue: [], ev: null, fullT: 0, fireCd: 0, lanCd: 0,
+  total: 0, moon: 0, target: 100, rounds: 0, wishStars: 0,
+  quiz: { idx: -1, show: false, reveal: false }, qTime: 20, qEvery: 10, qAuto: 600, qOn: true
+};
+function save() {
+  try { localStorage.setItem('lk_state', JSON.stringify({ total: S.total, moon: S.moon, target: S.target, rounds: S.rounds, wishStars: S.wishStars })); } catch (e) {}
+}
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem('lk_state') || 'null');
+    if (d) { S.total = d.total | 0; S.moon = d.moon | 0; S.target = Math.max(10, d.target | 0 || 100); S.rounds = d.rounds | 0; S.wishStars = Math.min(110, d.wishStars | 0); }
+  } catch (e) {}
+}
+load();
+for (let i = 0; i < 150; i++) S.stars.push({ x: rnd(0, W), y: rnd(0, HZ - 60), r: rnd(0.8, 2.2), ph: rnd(0, 6.28), wish: false });
+for (let i = 0; i < S.wishStars; i++) S.stars.push({ x: rnd(30, W - 30), y: rnd(60, HZ - 140), r: rnd(2.4, 3.8), ph: rnd(0, 6.28), wish: true });
+const shimmer = Array.from({ length: 90 }, () => ({ u: Math.random(), x: Math.random(), ph: rnd(0, 6.28), sp: rnd(0.3, 1) }));
+const bankLights = Array.from({ length: 34 }, () => ({ x: rnd(0, W), ph: rnd(0, 6.28), r: rnd(2, 4) }));
+
+/* ---------- sound ---------- */
+let AC = null;
+function audio() {
+  if (!$('snd').checked) return null;
+  try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); } catch (e) { return null; }
+  return AC;
+}
+function chime(notes, vol) {
+  const ac = audio(); if (!ac) return;
+  notes.forEach((f, i) => {
+    const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + i * 0.13;
+    o.type = 'sine'; o.frequency.value = f;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol || 0.12, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0008, t + 1.4);
+    o.connect(g).connect(ac.destination); o.start(t); o.stop(t + 1.5);
+  });
+}
+function boom() {
+  const ac = audio(); if (!ac) return;
+  const len = ac.sampleRate * 0.9 | 0, buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.5);
+  const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  src.buffer = buf; f.type = 'lowpass'; f.frequency.value = 900; g.gain.value = 0.22;
+  src.connect(f).connect(g).connect(ac.destination); src.start();
+}
+
+/* ---------- actions ---------- */
+function log(msg) {
+  const el = document.createElement('div'); el.textContent = msg;
+  $('log').prepend(el); while ($('log').children.length > 30) $('log').lastChild.remove();
+}
+function addStar(x, y, big) {
+  S.stars.push({ x, y, r: big ? rnd(3, 4.4) : rnd(2.4, 3.6), ph: rnd(0, 6.28), wish: true, born: S.T });
+  let nw = 0; for (const t of S.stars) if (t.wish) nw++;
+  if (nw > 110) S.stars.splice(S.stars.findIndex(t => t.wish), 1);        // เก็บดาวไว้ไม่เกิน 110 ดวง ดวงเก่าสุดค่อย ๆ หายไป
+  S.wishStars = Math.min(110, S.wishStars + 1);
+}
+function addMoon(n) {
+  if (S.fullT > 0) return;
+  S.moon = Math.min(S.target, S.moon + n);
+  if (S.moon >= S.target) { S.fullT = 14; S.rounds++; chime([523, 659, 784, 1047, 1319], 0.16); log('🌕 พระจันทร์เต็มดวง รอบที่ ' + S.rounds); }
+  save();
+}
+function floatKrathong(name, wish, opt) {
+  name = (name || '').trim(); wish = (wish || '').trim();
+  if (!name && !wish) return false;
+  S.queue.push(Object.assign({ name: name || 'ผู้ไม่ประสงค์ออกนาม', wish }, opt || {}));
+  return true;
+}
+function spawn(o) {
+  const lane = LANES[S.laneIdx % LANES.length]; S.laneIdx += 2;
+  S.krathongs.push({
+    name: o.name, wish: o.wish, gold: !!o.gold, star: !!o.star, fleet: !!o.fleet, skin: o.gold ? 'krathong-gold' : o.star ? 'krathong-star' : o.fleet ? 'krathong-lotus' : pick(SKINS), t: 0, age: 0, lane, ph: rnd(0, 6.28),
+    color: o.gold ? '#ffe08a' : o.star ? '#bfe3ff' : pick(PETALS), dur: (S.dur || 75) * (o.gold ? 1.15 : 1), lines: null
+  });
+  S.total++; addMoon(2); save();
+  chime(o.gold ? [784, 988, 1175, 1568] : [659, 880], 0.1);
+  log((o.gold ? '✦ ' : o.star ? '⭐ ' : '🪷 ') + o.name + (o.wish ? ' — ' + o.wish : ''));
+}
+function starPick(name) {
+  name = (name || '').trim(); if (!name) return false;
+  S.evQueue.push({ name, fortune: nextFortune(), age: 0, sx: rnd(120, 960) });
+  return true;
+}
+/* ---------- พลุ: จำลองแบบพลุจริง (ลูกไฟกระจายทรงกลม 3 มิติ แรงต้านอากาศ หางแสงค้าง ควัน เงาในน้ำ) ---------- */
+const FW_TYPES = ['peony', 'peony', 'pistil', 'pistil', 'chrys', 'willow', 'willow', 'ring', 'palm', 'strobe', 'double', 'crackle', 'heart'];
+const FW_COL = [[2, 100], [22, 100], [44, 100], [118, 90], [190, 100], [222, 100], [278, 95], [318, 100], [48, 25]];   // แดง ส้ม ทอง เขียว ฟ้า น้ำเงิน ม่วง ชมพู เงิน
+const FW = { c: document.createElement('canvas'), idle: 9 };
+FW.c.width = W; FW.c.height = HZ; FW.x = FW.c.getContext('2d');
+function spark(x, y, vx, vy, life, hue, o) {
+  S.parts.push(Object.assign({ x, y, px: x, py: y, vx, vy, life, max: life, hue, sat: 100, g: 150, drag: 1.6, r: 2.6, tl: 0.05, tw: Math.random() * 6.28 }, o || {}));
+}
+function star(x, y, vx, vy, life, col, o) {
+  S.parts.push(Object.assign({ x, y, px: x, py: y, vx, vy, life, max: life, hue: col[0] + rnd(-5, 5), sat: col[1], g: 95, drag: 2.1, r: 2.6, fw: true, tw: Math.random() * 6.28 }, o || {}));
+}
+function sphere() { const z = rnd(-1, 1), a = rnd(0, 6.283), r = Math.sqrt(1 - z * z); return [Math.cos(a) * r, Math.sin(a) * r]; }   // ทิศสุ่มบนทรงกลม ฉายลงจอ
+function explode(x, y, hue, type) {
+  type = type || pick(FW_TYPES);
+  const c1 = pick(FW_COL); let c2 = pick(FW_COL); if (c2 === c1) c2 = FW_COL[8];
+  S.booms.push({ x, y, age: 0, hue: c1[0] }); S.smokes.push({ x, y, age: 0, r: rnd(70, 110) });
+  const v = rnd(640, 840), N = (n, f) => { for (let i = 0; i < n; i++) f(i, n); };
+  const shell = (n, vv, col, o) => N(n, () => { const d = sphere(), sp = vv * rnd(0.95, 1.02); star(x, y, d[0] * sp, d[1] * sp, rnd(1.7, 2.3), col, o); });
+  if (type === 'peony') shell(180, v, c1);
+  else if (type === 'pistil') { shell(160, v, c1); shell(60, v * 0.42, c2, { r: 2.2 }); }
+  else if (type === 'double') { shell(110, v, c1); shell(110, v * 0.72, c2); }
+  else if (type === 'chrys') shell(170, v * 1.05, c1, { r: 3, gl: true });
+  else if (type === 'crackle') shell(150, v, c1, { crk: true });
+  else if (type === 'strobe') N(140, () => { const d = sphere(), sp = v * 0.8 * rnd(0.5, 1); star(x, y, d[0] * sp, d[1] * sp, rnd(2.2, 3), FW_COL[8], { gl: true, st: true, drag: 1.9 }); });
+  else if (type === 'willow') N(170, () => { const d = sphere(), sp = rnd(430, 600); star(x, y, d[0] * sp, d[1] * sp, rnd(3, 4.1), [42, 95], { g: 135, drag: 1.3, r: 2.2, gl: true }); });
+  else if (type === 'palm') {
+    N(9, (i, n) => { const a = i / n * 6.283 + rnd(-0.15, 0.15); N(18, j => { const sp = v * (0.5 + j / 18 * 0.55); star(x, y, Math.cos(a) * sp + rnd(-14, 14), Math.sin(a) * sp + rnd(-14, 14), rnd(2.2, 2.9), [40, 100], { g: 150, drag: 1.7, r: 3 }); }); });
+    shell(40, v * 0.3, c1, { r: 2 });
+  } else if (type === 'ring') {
+    const tilt = rnd(0.3, 1), rot = rnd(0, 3.14);
+    N(80, (i, n) => { const a = i / n * 6.283, cx = Math.cos(a) * v * 0.85, cy = Math.sin(a) * v * 0.85 * tilt; star(x, y, cx * Math.cos(rot) - cy * Math.sin(rot), cx * Math.sin(rot) + cy * Math.cos(rot), 2, c1, { r: 3 }); });
+    shell(45, v * 0.3, c2, { r: 2.2 });
+  } else if (type === 'heart') {
+    N(90, (i, n) => { const t = i / n * 6.283, hx = 16 * Math.pow(Math.sin(t), 3), hy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)); star(x, y, hx * 45, hy * 45, 2.2, [345, 100], { r: 3, g: 70 }); });
+  }
+  setTimeout(boom, 120 + Math.random() * 180);          // เสียงตามหลังแสงเล็กน้อย
+}
+function rocket(x, type) {
+  x = x == null ? rnd(130, 950) : x;
+  S.rockets.push({ x, x0: x, y: HZ - 30, ty: rnd(140, 480), drift: rnd(-70, 70), age: 0, dur: rnd(0.9, 1.25), hue: 0, type });
+}
+function burst(x, y, hue) { explode(x, y, hue); }
+function fireworks(n) {
+  for (let i = 0; i < (n || 3); i++) setTimeout(() => rocket(), i * 260 + rnd(0, 160));
+}
+function drawFireworks() {
+  const f = FW.x, dt = S.dt || 0.016; let any = false;
+  for (const p of S.parts) if (p.fw) { any = true; break; }
+  FW.idle = any ? 0 : FW.idle + dt; if (FW.idle > 2.5) return;
+  f.globalCompositeOperation = 'destination-out'; f.fillStyle = 'rgba(0,0,0,' + (1 - Math.exp(-dt * 9)) + ')'; f.fillRect(0, 0, W, HZ);   // หางแสงค่อย ๆ จาง
+  f.globalCompositeOperation = 'lighter'; f.lineCap = 'round';
+  for (const p of S.parts) {
+    if (!p.fw) continue;
+    const a = p.life / p.max; let br = a < 0.45 ? a / 0.45 : 1;
+    if (p.gl && a < 0.55) br *= Math.sin(S.T * (p.st ? 46 : 30) + p.tw) > 0.1 ? 1 : 0.1;         // ระยิบตอนใกล้ดับ
+    else if (p.st) br *= Math.sin(S.T * 46 + p.tw) > 0 ? 1 : 0.15;
+    const L = a > 0.93 ? 88 : 52, col = 'hsla(' + p.hue + ',' + p.sat + '%,' + L + '%,';     // ขาวจัดแค่เสี้ยววินาทีแรก แล้วเป็นสีเต็ม
+    f.strokeStyle = col + br * 0.13 + ')'; f.lineWidth = p.r * 3.4;
+    f.beginPath(); f.moveTo(p.px, p.py); f.lineTo(p.x, p.y); f.stroke();
+    f.strokeStyle = col + br * 0.85 + ')'; f.lineWidth = p.r * (0.55 + 0.6 * a);
+    f.beginPath(); f.moveTo(p.px, p.py); f.lineTo(p.x, p.y); f.stroke();
+  }
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  ctx.drawImage(FW.c, 0, 0);
+  ctx.globalAlpha = 0.17; ctx.translate(Math.sin(S.T * 2.2) * 3, HZ); ctx.scale(1, -0.62);    // เงาพลุบนผิวน้ำ
+  ctx.drawImage(FW.c, 0, -HZ);
+  ctx.restore();
+}
+function lantern(n) {
+  for (let i = 0; i < (n || 8); i++) S.lanterns.push({ x: rnd(60, W - 60), y: HZ + rnd(-10, 30), vy: -rnd(38, 72), s: rnd(0.55, 1.05), ph: rnd(0, 6.28), a: 0 });
+}
+/* ---------- ของขวัญ: 4 ระดับตามมูลค่าเหรียญ (เอฟเฟกต์ล้วน ไม่มีรางวัล ไม่มีการสุ่ม) ---------- */
+const G = { banners: [], sup: new Map(), top: [] };
+function giftAct(nick, coins) {
+  nick = String(nick || '').trim().slice(0, 24) || 'คนดูใจดี'; coins = Math.max(1, coins | 0);
+  G.sup.set(nick, (G.sup.get(nick) || 0) + coins);
+  G.top = Array.from(G.sup.entries()).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const banner = (text, sub) => { G.banners.push({ text, sub, age: 0 }); if (G.banners.length > 6) G.banners.splice(1, 1); };
+  if (coins >= 1000) {
+    banner('🐉 ' + nick + ' อัญเชิญพญานาคแสง!', 'ขอบคุณจากใจ ขอให้รุ่งเรืองตลอดปี');
+    S.nagas.push({ age: 0, dir: Math.random() < 0.5 ? 1 : -1, y: HZ + rnd(230, 330) });
+    floatKrathong(nick, 'ผู้อัญเชิญพญานาคแสง', { gold: true }); fireworks(8); addMoon(40);
+    chime([262, 392, 523, 784, 1047], 0.14);
+  } else if (coins >= 500) {
+    banner('🌕 ' + nick + ' จุดพระจันทร์เต็มดวง!', 'ขอบคุณที่ทำให้ทั้งห้องสว่างไสว');
+    floatKrathong(nick, 'ผู้จุดพระจันทร์เต็มดวง', { gold: true });
+    if (S.fullT <= 0) addMoon(S.target); else { fireworks(8); lantern(20); }
+  } else if (coins >= 199) {
+    banner('💖 ' + nick + ' จุดพลุหัวใจ!', 'ขอบคุณมาก ๆ ขอให้ความรักสมหวัง');
+    for (let i = 0; i < 7; i++) setTimeout(() => rocket(null, 'heart'), i * 320);
+    floatKrathong(nick, 'ขอบคุณสำหรับพลุหัวใจ', { gold: true }); addMoon(25);
+  } else if (coins >= 99) {
+    banner('🎆 ' + nick + ' จุดพลุชุดใหญ่!', 'ขอบคุณมากนะ ขอให้สมหวังทุกเรื่อง');
+    fireworks(10); floatKrathong(nick, 'ขอบคุณสำหรับพลุชุดใหญ่', { gold: true }); addMoon(20);
+  } else if (coins >= 30) {
+    banner('🪷 ขบวนกระทงของ ' + nick, 'ขอบคุณนะ ขอให้มีแต่เรื่องดี ๆ');
+    for (let i = 0; i < 5; i++) floatKrathong(nick, i === 0 ? 'ขบวนกระทง' : '', { fleet: true });
+    addMoon(12);
+  } else if (coins >= 10) {
+    banner('🏮 ' + nick + ' ปล่อยโคมลอย', 'ขอบคุณนะ ขอให้โชคดีตลอดปี');
+    lantern(16); chime([523, 784, 1047], 0.1); addMoon(8);
+  } else if (coins >= 5) {
+    banner('✨ ' + nick + ' เรียกฝนดาวตก', 'ขอบคุณนะ อธิษฐานได้เลย');
+    for (let i = 0; i < 18; i++) setTimeout(() => S.shoots.push({ x: rnd(200, 1050), y: rnd(20, 380), vx: -rnd(420, 680), vy: rnd(160, 260), life: 1.1 }), i * 130);
+    chime([1047, 1319, 1568], 0.08); addMoon(5);
+  } else {
+    floatKrathong(nick, 'ขอบคุณที่มาร่วมลอยกระทงด้วยกัน', { gold: true }); addMoon(3);
+  }
+  log('🎁 ' + nick + ' (' + coins + ' เหรียญ)');
+}
+function quizNext() { S.quiz.idx = (S.quiz.idx + 1) % QUIZ.length; S.quiz.show = true; S.quiz.reveal = false; S.quiz.t = S.qTime; S.quiz.hold = null; S.quiz.winner = null; S.qAuto = S.qEvery * 60; chime([880, 1175], 0.1); quizInfo(); }
+function quizInfo() {
+  const q = S.quiz;
+  if (q.show) $('qInfo').textContent = 'ข้อ ' + (q.idx + 1) + '/' + QUIZ.length + ' · เฉลย: ' + QUIZ[q.idx][1] + (q.reveal ? ' (เฉลยแล้ว)' : ' (เหลือ ' + Math.max(0, Math.ceil(q.t)) + ' วิ)');
+  else $('qInfo').textContent = S.qOn ? 'ควิซข้อต่อไปในอีก ' + Math.floor(S.qAuto / 60) + ':' + String(Math.floor(S.qAuto % 60)).padStart(2, '0') + ' นาที' : 'ควิซอัตโนมัติปิดอยู่';
+}
+
+/* ---------- text helpers ---------- */
+const seg = (window.Intl && Intl.Segmenter) ? new Intl.Segmenter('th', { granularity: 'word' }) : null;
+function wrap(text, font, maxW, maxLines) {
+  ctx.font = font;
+  const words = seg ? Array.from(seg.segment(text), s => s.segment) : Array.from(text);
+  const lines = []; let cur = '';
+  for (const w of words) {
+    if (ctx.measureText(cur + w).width > maxW && cur) { lines.push(cur.trim()); cur = w.trimStart(); } else cur += w;
+  }
+  if (cur.trim()) lines.push(cur.trim());
+  if (lines.length > maxLines) {
+    lines.length = maxLines; let l = lines[maxLines - 1];
+    while (l && ctx.measureText(l + '…').width > maxW) l = l.slice(0, -1);
+    lines[maxLines - 1] = l + '…';
+  }
+  return lines;
+}
+function rr(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+const TC = new Map();
+function glowText(txt, x, y, font, color, glow, blur, align) {
+  const key = txt + '|' + font + '|' + color + '|' + glow + '|' + blur;
+  let sp = TC.get(key);
+  if (!sp) {
+    if (TC.size > 260) TC.clear();
+    ctx.save(); ctx.font = font; const w = Math.ceil(ctx.measureText(txt).width); ctx.restore();
+    const px = parseInt((font.match(/(\d+)px/) || [0, 30])[1], 10), pad = blur * 2 + 8, base = pad + Math.ceil(px * 1.2);
+    const c = document.createElement('canvas'); c.width = w + pad * 2; c.height = Math.ceil(px * 1.75) + pad * 2;
+    const g = c.getContext('2d'); g.font = font; g.textBaseline = 'alphabetic'; g.shadowColor = glow; g.shadowBlur = blur; g.fillStyle = color;
+    g.fillText(txt, pad, base);
+    sp = { c, w, pad, base }; TC.set(key, sp);
+  }
+  const ox = align === 'center' ? -sp.w / 2 : align === 'right' ? -sp.w : 0;
+  ctx.drawImage(sp.c, x + ox - sp.pad, y - sp.base);
+}
+if (document.fonts) { document.fonts.ready.then(() => TC.clear()); document.fonts.addEventListener && document.fonts.addEventListener('loadingdone', () => TC.clear()); }
+// gradient ที่ใช้ซ้ำ (สร้างครั้งเดียว ไม่สร้างใหม่ทุกเฟรม)
+const GR = {};
+(function () {
+  const rad = (y, r0, r1, stops) => { const g = ctx.createRadialGradient(0, y, r0, 0, y, r1); stops.forEach(s => g.addColorStop(s[0], s[1])); return g; };
+  const lin = (y0, y1, a, b) => { const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, a); g.addColorStop(1, b); return g; };
+  GR.refl = rad(60, 6, 210, [[0, 'rgba(255,180,90,0.42)'], [1, 'rgba(255,180,90,0)']]);
+  GR.reflGold = rad(60, 6, 300, [[0, 'rgba(255,214,110,0.55)'], [1, 'rgba(255,180,90,0)']]);
+  GR.flame = rad(-84, 2, 92, [[0, 'rgba(255,220,140,0.85)'], [0.3, 'rgba(255,170,70,0.3)'], [1, 'rgba(255,150,50,0)']]);
+  GR.leaf = lin(-80, 10, '#6fbf5a', '#1e5a26'); GR.leafGold = lin(-80, 10, '#fff2b0', '#b8791a');
+  GR.lanGlow = rad(0, 4, 90, [[0, 'rgba(255,170,70,0.5)'], [1, 'rgba(255,150,50,0)']]);
+  GR.lanBody = lin(-34, 30, '#ffcf87', '#ff7a1c');
+  GR.smoke = rad(0, 0, 46, [[0, 'rgba(215,205,235,1)'], [0.6, 'rgba(190,180,215,0.5)'], [1, 'rgba(180,170,210,0)']]);
+  GR.riser = rad(0, 1, 46, [[0, 'rgba(255,236,170,0.95)'], [1, 'rgba(255,200,110,0)']]);
+})();
+
+/* ---------- drawing: world ---------- */
+// ฉากหลังและพระจันทร์ที่ Codex วาด (ถ้าโหลดไม่ได้ ใช้ฉากที่วาดด้วยโค้ดแทน)
+const BG = { img: new Image(), ok: false, hz: 0.406 };
+BG.img.onload = () => { BG.ok = true; }; BG.img.src = 'art/cut/scene.jpg';
+const MOONIMG = { img: new Image(), ok: false };
+MOONIMG.img.onload = () => { MOONIMG.ok = true; }; MOONIMG.img.src = 'art/cut/moon.png';
+function drawBg() {
+  const im = BG.img, sc = Math.max(W / im.width, HZ / (BG.hz * im.height), (H - HZ) / ((1 - BG.hz) * im.height));
+  const ox = (W - im.width * sc) / 2, oy = HZ - BG.hz * im.height * sc, hzSrc = BG.hz * im.height;
+  ctx.drawImage(im, 0, 0, im.width, hzSrc, ox, oy, im.width * sc, HZ - oy);            // ฟ้า + ฝั่ง (นิ่ง)
+  // ผิวน้ำ: วาดทีละแถบแล้วเลื่อนซ้ายขวาเป็นคลื่น เงาไฟจึงพลิ้วเหมือนน้ำจริง (ใกล้ตัว = คลื่นใหญ่กว่า)
+  const step = Q.s < 1 ? 5 : 3;
+  for (let y = HZ; y < H; y += step) {
+    const u = (y - HZ) / (H - HZ), d = 1 / (0.12 + u);
+    const off = Math.sin(d * 7.5 + S.T * 1.7) * (1.2 + u * 9) + Math.sin(d * 19 - S.T * 2.6) * (0.6 + u * 3.5) + Math.sin(y * 0.021 + S.T * 0.7) * u * 6;
+    const vy = Math.sin(d * 11 + S.T * 2.1) * (0.4 + u * 2.2);                           // ยืดหดแนวตั้งเล็กน้อย
+    ctx.drawImage(im, 0, (y - oy + vy) / sc, im.width, step / sc, ox + off, y, im.width * sc, step + 0.6);
+  }
+}
+// ดาวคำอธิษฐาน: ประกายสี่แฉกเล็ก ๆ แบบดาวจริง (แทนจุดกลมเรืองแสง)
+const STAR_SP = (function () {
+  const c = document.createElement('canvas'); c.width = c.height = 96; const x = c.getContext('2d'); x.translate(48, 48);
+  let g = x.createRadialGradient(0, 0, 0, 0, 0, 14); g.addColorStop(0, 'rgba(255,250,235,1)'); g.addColorStop(0.25, 'rgba(255,236,190,0.55)'); g.addColorStop(1, 'rgba(255,220,150,0)');
+  x.fillStyle = g; x.beginPath(); x.arc(0, 0, 14, 0, 6.283); x.fill();
+  for (let i = 0; i < 2; i++) {                      // แฉกแสงแนวตั้ง/แนวนอน
+    x.save(); x.rotate(i * Math.PI / 2); x.scale(1, 0.045);
+    g = x.createRadialGradient(0, 0, 0, 0, 0, 46); g.addColorStop(0, 'rgba(255,248,225,0.95)'); g.addColorStop(1, 'rgba(255,230,170,0)');
+    x.fillStyle = g; x.beginPath(); x.arc(0, 0, 46, 0, 6.283); x.fill(); x.restore();
+  }
+  return c;
+})();
+function drawSky() {
+  if (BG.ok) {
+    drawBg();
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (const s of S.stars) {
+      if (!s.wish) continue;                           // ดาวพื้นหลังมีอยู่ในภาพฉากแล้ว
+      const tw = 0.5 + 0.5 * Math.sin(S.T * 1.7 + s.ph), pop = s.born != null ? clamp(2.6 - (S.T - s.born) * 0.8, 1, 2.6) : 1;
+      const sz = (s.r * 7 + tw * 7) * pop;
+      ctx.globalAlpha = 0.35 + 0.65 * tw;
+      ctx.drawImage(STAR_SP, s.x - sz / 2, s.y - sz / 2, sz, sz);
+    }
+    ctx.restore();
+    return;
+  }
+  const g = ctx.createLinearGradient(0, 0, 0, HZ);
+  g.addColorStop(0, '#04051a'); g.addColorStop(0.55, '#0c1140'); g.addColorStop(1, '#2a1f5c');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, HZ);
+  // ทางช้างเผือกจาง ๆ
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(380, 330); ctx.rotate(-0.5);
+  const mg = ctx.createRadialGradient(0, 0, 10, 0, 0, 620);
+  mg.addColorStop(0, 'rgba(150,130,255,0.16)'); mg.addColorStop(1, 'rgba(150,130,255,0)');
+  ctx.scale(1, 0.26); ctx.fillStyle = mg; ctx.beginPath(); ctx.arc(0, 0, 620, 0, 6.283); ctx.fill(); ctx.restore();
+  // ดาว
+  for (const s of S.stars) {
+    const tw = 0.55 + 0.45 * Math.sin(S.T * (s.wish ? 1.6 : 1.1) + s.ph);
+    const pop = s.born != null ? clamp(1.8 - (S.T - s.born) * 0.5, 1, 1.8) : 1;
+    if (s.wish) {
+      ctx.fillStyle = 'rgba(255,225,150,' + (0.16 * tw) + ')'; ctx.beginPath(); ctx.arc(s.x, s.y, s.r * 4.2 * pop, 0, 6.283); ctx.fill();
+      ctx.fillStyle = 'rgba(255,238,190,' + (0.55 + 0.45 * tw) + ')';
+    } else ctx.fillStyle = 'rgba(220,225,255,' + (0.25 + 0.6 * tw) + ')';
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r * pop, 0, 6.283); ctx.fill();
+  }
+}
+function moonPhase() { return S.fullT > 0 ? 1 : clamp(S.moon / S.target, 0, 1); }
+function drawMoon() {
+  const p = moonPhase(), { x, y, r } = MOON, pulse = S.fullT > 0 ? 1 + 0.06 * Math.sin(S.T * 5) : 1;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const gl = ctx.createRadialGradient(x, y, r * 0.6, x, y, r * (2.4 + p * 1.6) * pulse);
+  gl.addColorStop(0, 'rgba(255,236,170,' + (0.14 + 0.36 * p) + ')'); gl.addColorStop(1, 'rgba(255,236,170,0)');
+  ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(x, y, r * 4.2, 0, 6.283); ctx.fill(); ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.clip();
+  if (MOONIMG.ok) ctx.drawImage(MOONIMG.img, x - r * 1.015, y - r * 1.015, r * 2.03, r * 2.03); else {
+  const mg = ctx.createRadialGradient(x - 30, y - 30, 10, x, y, r);
+  mg.addColorStop(0, '#fffbe6'); mg.addColorStop(1, '#f3d98c');
+  ctx.fillStyle = mg; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  ctx.fillStyle = 'rgba(190,160,90,0.22)';
+  [[-34, -20, 26], [30, 28, 20], [20, -48, 13], [-44, 42, 15], [54, -8, 10]].forEach(c => { ctx.beginPath(); ctx.arc(x + c[0], y + c[1], c[2], 0, 6.283); ctx.fill(); });
+  }
+  if (p < 1) {  // เงาบังเสี้ยวจันทร์
+    ctx.fillStyle = BG.ok ? 'rgba(30,18,78,0.93)' : 'rgba(9,11,40,0.94)'; ctx.beginPath();
+    ctx.arc(x - (0.14 + 0.86 * p) * 2.12 * r, y, r * 1.04, 0, 6.283); ctx.fill();
+  }
+  ctx.restore();
+  // มาตรวัด
+  const bx = x - 150, by = y + r + 46, bw = 300;
+  ctx.fillStyle = 'rgba(6,8,30,0.6)'; rr(bx, by, bw, 18, 9); ctx.fill();
+  if (p > 0.01) { const bg = ctx.createLinearGradient(bx, 0, bx + bw, 0); bg.addColorStop(0, '#ffb347'); bg.addColorStop(1, '#fff3b8'); ctx.fillStyle = bg; rr(bx, by, Math.max(18, bw * p), 18, 9); ctx.fill(); }
+  glowText(S.fullT > 0 ? 'พระจันทร์เต็มดวงแล้ว!' : 'แสงจันทร์ ' + Math.round(p * 100) + '%', x, by + 58, '500 32px ' + FONT, '#ffe9b0', 'rgba(0,0,0,0.9)', 8, 'center');
+  glowText('กดหัวใจ ช่วยเติมจันทร์ให้เต็มดวง', x, by + 96, '300 23px ' + FONT, '#cfd3ff', 'rgba(0,0,0,0.9)', 8, 'center');
+}
+function drawBank() {
+  if (BG.ok) return;
+  ctx.fillStyle = '#070920'; ctx.beginPath(); ctx.moveTo(0, HZ + 4);
+  for (let x = 0; x <= W; x += 20) ctx.lineTo(x, HZ - 46 - 26 * Math.sin(x * 0.006 + 1) - 16 * Math.sin(x * 0.017));
+  ctx.lineTo(W, HZ + 4); ctx.closePath(); ctx.fill();
+  const chedi = (cx, h, w) => {
+    ctx.beginPath(); ctx.moveTo(cx - w, HZ); ctx.lineTo(cx - w * 0.82, HZ - h * 0.2); ctx.quadraticCurveTo(cx - w * 0.5, HZ - h * 0.52, cx - w * 0.1, HZ - h * 0.62);
+    ctx.lineTo(cx, HZ - h); ctx.lineTo(cx + w * 0.1, HZ - h * 0.62); ctx.quadraticCurveTo(cx + w * 0.5, HZ - h * 0.52, cx + w * 0.82, HZ - h * 0.2); ctx.lineTo(cx + w, HZ); ctx.closePath(); ctx.fill();
+  };
+  ctx.fillStyle = '#05061a'; chedi(150, 190, 56); chedi(262, 120, 36); chedi(960, 150, 44); chedi(560, 96, 28);
+  for (const b of bankLights) {
+    const a = 0.45 + 0.4 * Math.sin(S.T * 2.2 + b.ph);
+    ctx.fillStyle = 'rgba(255,190,100,' + a * 0.25 + ')'; ctx.beginPath(); ctx.arc(b.x, HZ - 6, b.r * 3.2, 0, 6.283); ctx.fill();
+    ctx.fillStyle = 'rgba(255,214,140,' + a + ')'; ctx.beginPath(); ctx.arc(b.x, HZ - 6, b.r, 0, 6.283); ctx.fill();
+  }
+}
+// ประกายแสงบนยอดคลื่น (สร้างภาพเบลอไว้ครั้งเดียว)
+function glintSprite(r, g, b) {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 32; const x = c.getContext('2d');
+  x.translate(64, 16); x.scale(1, 0.25);
+  const gr = x.createRadialGradient(0, 0, 0, 0, 0, 64); gr.addColorStop(0, 'rgba(' + r + ',' + g + ',' + b + ',1)'); gr.addColorStop(0.35, 'rgba(' + r + ',' + g + ',' + b + ',0.45)'); gr.addColorStop(1, 'rgba(' + r + ',' + g + ',' + b + ',0)');
+  x.fillStyle = gr; x.beginPath(); x.arc(0, 0, 64, 0, 6.283); x.fill(); return c;
+}
+const GLINT = { cool: glintSprite(170, 190, 255), gold: glintSprite(255, 226, 150), warm: glintSprite(255, 190, 110) };
+const glints = Array.from({ length: 170 }, () => ({ u: Math.pow(Math.random(), 1.4), x: Math.random(), ph: rnd(0, 6.28), sp: rnd(0.7, 2.2), dr: rnd(4, 16) }));
+const moonGl = Array.from({ length: 90 }, () => ({ u: Math.pow(Math.random(), 1.2), o: rnd(-1, 1), ph: rnd(0, 6.28), sp: rnd(1.5, 4) }));
+function drawWater() {
+  if (!BG.ok) {
+    const g = ctx.createLinearGradient(0, HZ, 0, H);
+    g.addColorStop(0, '#231c58'); g.addColorStop(0.25, '#0d1140'); g.addColorStop(1, '#02030f');
+    ctx.fillStyle = g; ctx.fillRect(0, HZ, W, H - HZ);
+  }
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const p = moonPhase();
+  // ทางแสงจันทร์: ประกายเล็ก ๆ ระยิบ กว้างขึ้นเมื่อเข้าใกล้ผู้ชม
+  for (const m of moonGl) {
+    const fl = Math.max(0, Math.sin(S.T * m.sp + m.ph)); if (fl < 0.05) continue;
+    const y = HZ + 10 + m.u * (H - HZ - 20), spread = 22 + m.u * 230, w = 36 + m.u * 150, h = 5 + m.u * 16;
+    ctx.globalAlpha = fl * fl * (0.10 + 0.55 * p) * (1 - m.u * 0.55);
+    ctx.drawImage(GLINT.gold, MOON.x + m.o * spread + Math.sin(S.T * 0.6 + m.ph) * 10 - w / 2, y - h / 2, w, h);
+  }
+  // ประกายยอดคลื่นทั่วผิวน้ำ
+  for (const s of glints) {
+    const fl = Math.max(0, Math.sin(S.T * s.sp + s.ph)); if (fl < 0.08) continue;
+    const y = HZ + 8 + s.u * (H - HZ - 16), w = 26 + s.u * 190, h = 4 + s.u * 13;
+    const x = ((s.x * (W + 300) + S.T * s.dr * (0.4 + s.u)) % (W + 300)) - 150;
+    ctx.globalAlpha = fl * fl * fl * (0.16 + 0.2 * s.u);
+    ctx.drawImage(s.u < 0.16 ? GLINT.warm : GLINT.cool, x - w / 2, y - h / 2, w, h);
+  }
+  ctx.restore();
+}
+
+/* ---------- drawing: krathong ---------- */
+// สไปรต์กระทง (ออกแบบโดย Codex) — ถ้าโหลดภาพไม่ได้จะกลับไปใช้กระทงที่วาดด้วยโค้ด
+const SKMETA = {"krathong-gold": {"w": 520, "h": 526, "fx": 0.4952, "fy": 0.0661, "base": 0.9392}, "krathong-leaf": {"w": 520, "h": 556, "fx": 0.4948, "fy": 0.0908, "base": 0.9388}, "krathong-lotus": {"w": 520, "h": 565, "fx": 0.495, "fy": 0.0881, "base": 0.9398}, "krathong-orchid": {"w": 520, "h": 558, "fx": 0.4939, "fy": 0.089, "base": 0.9391}, "krathong-red": {"w": 520, "h": 499, "fx": 0.4885, "fy": 0.0715, "base": 0.9399}, "krathong-star": {"w": 520, "h": 490, "fx": 0.498, "fy": 0.0453, "base": 0.9388}, "krathong-white": {"w": 520, "h": 581, "fx": 0.4957, "fy": 0.0873, "base": 0.9398}};
+const SK = {};
+for (const n in SKMETA) { const im = new Image(), o = Object.assign({ img: im, ok: false }, SKMETA[n]); im.onload = () => { o.ok = true; }; im.src = 'art/cut/' + n + '.png'; SK[n] = o; }
+const SKINS = ['krathong-leaf', 'krathong-lotus', 'krathong-orchid', 'krathong-white', 'krathong-red'];
+
+function kPos(k) {
+  const e = k.t, inv = 1 - e;
+  const s = 0.15 + 0.85 * Math.pow(inv, 1.5);
+  return {
+    x: W / 2 + k.lane * (0.22 + 0.78 * Math.pow(inv, 1.2)) + Math.sin(S.T * 0.45 + k.ph) * 34 * s,
+    y: HZ + 6 + (H * 0.935 - HZ) * Math.pow(inv, 1.8), s: s * (k.gold ? 1.75 : 1)
+  };
+}
+function petal(a, len, w, fill) {
+  ctx.save(); ctx.rotate(a); ctx.beginPath(); ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(-w, -len * 0.5, 0, -len); ctx.quadraticCurveTo(w, -len * 0.5, 0, 0);
+  ctx.fillStyle = fill; ctx.fill(); ctx.restore();
+}
+function drawKrathong(k, pos, alpha) {
+  const { x, s } = pos, y = pos.y + Math.sin(S.T * 1.8 + k.ph) * 5 * s;
+  const fl = 0.8 + 0.2 * Math.sin(S.T * 13 + k.ph * 3) + 0.08 * Math.sin(S.T * 29 + k.ph);
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.scale(s, s);
+  // แสงสะท้อนบนน้ำ
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.scale(1, 0.34);
+  ctx.fillStyle = k.gold ? GR.reflGold : GR.refl; ctx.beginPath(); ctx.arc(0, 60, 300, 0, 6.283); ctx.fill(); ctx.restore();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 5; i++) { ctx.fillStyle = 'rgba(255,205,120,' + (0.3 - i * 0.05) * fl + ')'; ctx.fillRect(-9 + Math.sin(S.T * 3 + i + k.ph) * 7, 34 + i * 15, 18 - i * 2, 4); }
+  ctx.restore();
+  ctx.rotate(Math.sin(S.T * 1.1 + k.ph) * 0.04);
+  const sk = SK[k.skin];
+  if (sk && sk.ok) {
+    const dw = 210, dh = dw * sk.h / sk.w, top = 12 - dh * sk.base;
+    k.top = -top;
+    ctx.save(); ctx.globalAlpha = alpha * 0.2;                                  // เงากระทงกลับหัวในน้ำ
+    ctx.translate(Math.sin(S.T * 2.3 + k.ph) * 3, 16); ctx.scale(1, -0.55);
+    ctx.drawImage(sk.img, -dw / 2, top - 12, dw, dh); ctx.restore();
+    ctx.save(); ctx.strokeStyle = 'rgba(190,210,255,1)';                        // วงน้ำกระเพื่อมรอบกระทง
+    for (let i = 0; i < 3; i++) {
+      const ph = (S.T * 0.28 + k.ph + i / 3) % 1, rx = 96 + ph * 120;
+      ctx.globalAlpha = alpha * (1 - ph) * 0.3; ctx.lineWidth = 2.4 - ph * 1.4;
+      ctx.beginPath(); ctx.ellipse(0, 14, rx, rx * 0.19, 0, 0, 6.283); ctx.stroke();
+    }
+    ctx.restore();
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(sk.img, -dw / 2, top, dw, dh);
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = alpha * clamp(fl, 0, 1) * 0.8;
+    ctx.translate((sk.fx - 0.5) * dw, top + sk.fy * dh + 84); ctx.fillStyle = GR.flame; ctx.beginPath(); ctx.arc(0, -84, 96, 0, 6.283); ctx.fill();
+    ctx.restore(); return;
+  }
+  // ฐาน
+  ctx.fillStyle = '#132a14'; ctx.beginPath(); ctx.ellipse(0, 10, 86, 22, 0, 0, 6.283); ctx.fill();
+  // กลีบใบตองชั้นนอก
+  const og = k.gold ? GR.leafGold : GR.leaf;
+  ctx.save(); ctx.translate(0, 8);
+  for (let i = -3; i <= 3; i++) petal(i * 0.42, 80 - Math.abs(i) * 4, 26, og);
+  // กลีบดอกชั้นใน
+  for (let i = -2; i <= 2; i++) petal(i * 0.4 + 0.2 * Math.sign(i || 0) * 0, 58 - Math.abs(i) * 3, 20, k.color);
+  ctx.restore();
+  ctx.fillStyle = '#1b4a22'; ctx.beginPath(); ctx.ellipse(0, 12, 84, 15, 0, 0, Math.PI); ctx.fill();
+  // ดอกดาวเรือง
+  for (let i = -2; i <= 2; i++) { ctx.fillStyle = i % 2 ? '#ff9a1f' : '#ffc23d'; ctx.beginPath(); ctx.arc(i * 22, 2 - Math.abs(i) * 2, 9, 0, 6.283); ctx.fill(); }
+  // ธูป
+  ctx.strokeStyle = '#a0522d'; ctx.lineWidth = 2.4;
+  [[-16, -30, -100], [16, 30, -100]].forEach(d => { ctx.beginPath(); ctx.moveTo(d[0], -6); ctx.lineTo(d[1], d[2]); ctx.stroke(); ctx.fillStyle = '#ff5a3c'; ctx.beginPath(); ctx.arc(d[1], d[2], 3.2, 0, 6.283); ctx.fill(); });
+  // เทียน + เปลวไฟ
+  ctx.fillStyle = '#f7ecc9'; ctx.fillRect(-6, -66, 12, 62);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = alpha * clamp(fl, 0, 1); ctx.fillStyle = GR.flame; ctx.beginPath(); ctx.arc(0, -84, 96, 0, 6.283); ctx.fill(); ctx.restore();
+  ctx.fillStyle = '#fff6c8'; ctx.beginPath(); ctx.moveTo(0, -66);
+  ctx.quadraticCurveTo(-9, -80, Math.sin(S.T * 9 + k.ph) * 3, -66 - 34 * fl); ctx.quadraticCurveTo(9, -80, 0, -66); ctx.fill();
+  ctx.restore();
+}
+function drawLabel(k, pos, alpha) {
+  const ls = clamp(pos.s * 1.05, 0.56, 0.9), fade = k.t > 0.8 ? clamp(1 - (k.t - 0.8) / 0.14, 0, 1) : 1;
+  if (fade <= 0) return;
+  const fN = '600 ' + Math.round(38 * ls) + 'px ' + FONT, fW = '400 ' + Math.round(30 * ls) + 'px ' + FONT;
+  const key = Math.round(ls * 20);
+  if (!k.lines || k.lk !== key) { k.lines = k.wish ? wrap(k.wish, fW, 470 * ls, 2) : []; k.lk = key; }
+  const nm = (k.gold ? '✦ ' : k.star ? '⭐ ' : '') + k.name;
+  ctx.font = fN; let w = ctx.measureText(nm).width; ctx.font = fW; for (const l of k.lines) w = Math.max(w, ctx.measureText(l).width);
+  const padX = 22 * ls, lh = 40 * ls, h = 52 * ls + k.lines.length * lh + 14 * ls, bw = w + padX * 2;
+  const bx = clamp(pos.x - bw / 2, 14, W - bw - 14), by = pos.y - (k.top || 128) * pos.s - h - 6;
+  ctx.save(); ctx.globalAlpha = alpha * fade;
+  ctx.fillStyle = 'rgba(8,10,36,0.72)'; rr(bx, by, bw, h, 16 * ls); ctx.fill();
+  ctx.strokeStyle = k.gold ? 'rgba(255,214,120,0.95)' : 'rgba(255,214,120,0.32)'; ctx.lineWidth = k.gold ? 3 : 1.5; ctx.stroke();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.font = fN; ctx.fillStyle = '#ffd98a'; ctx.fillText(nm, bx + bw / 2, by + 42 * ls);
+  ctx.font = fW; ctx.fillStyle = '#f2f0ff';
+  k.lines.forEach((l, i) => ctx.fillText(l, bx + bw / 2, by + 42 * ls + (i + 1) * lh));
+  ctx.restore();
+}
+
+/* ---------- drawing: effects ---------- */
+function drawLantern(l) {
+  ctx.save(); ctx.translate(l.x + Math.sin(S.T * 0.9 + l.ph) * 16, l.y); ctx.scale(l.s, l.s); ctx.globalAlpha = l.a;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = GR.lanGlow; ctx.beginPath(); ctx.arc(0, 0, 90, 0, 6.283); ctx.fill(); ctx.restore();
+  ctx.fillStyle = GR.lanBody; ctx.beginPath(); ctx.moveTo(-18, 28); ctx.quadraticCurveTo(-32, -6, -22, -30); ctx.quadraticCurveTo(0, -42, 22, -30); ctx.quadraticCurveTo(32, -6, 18, 28); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#fff3c4'; ctx.beginPath(); ctx.ellipse(0, 26, 12, 5, 0, 0, 6.283); ctx.fill();
+  ctx.restore();
+}
+function drawParts() {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+  ctx.globalCompositeOperation = 'source-over';
+  for (const m of S.smokes) {           // ควันหลังพลุแตก
+    const a = clamp(Math.min(m.age / 0.5, (4.5 - m.age) / 3), 0, 1) * 0.07, sc = (m.r + m.age * 34) / 46;
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(m.x, m.y); ctx.scale(sc, sc * 0.8); ctx.fillStyle = GR.smoke; ctx.beginPath(); ctx.arc(0, 0, 46, 0, 6.283); ctx.fill(); ctx.restore();
+  }
+  ctx.globalCompositeOperation = 'lighter';
+  for (const b of S.booms) {            // แสงวาบตอนพลุแตก + แสงสะท้อนผิวน้ำ
+    const a = 1 - b.age / 0.45, r = 3 + b.age * 14;
+    ctx.save(); ctx.globalAlpha = a * 0.9; ctx.translate(b.x, b.y); ctx.scale(r, r); ctx.fillStyle = GR.riser; ctx.beginPath(); ctx.arc(0, 0, 46, 0, 6.283); ctx.fill(); ctx.restore();
+    ctx.fillStyle = 'hsla(' + b.hue + ',90%,70%,' + a * 0.045 + ')'; ctx.fillRect(0, HZ, W, H - HZ);
+  }
+  for (const r of S.rockets) { ctx.fillStyle = 'rgba(255,240,200,0.95)'; ctx.beginPath(); ctx.arc(r.x, r.y, 4, 0, 6.283); ctx.fill(); }
+  for (const p of S.parts) {
+    if (p.fw) continue;
+    let a = clamp(p.life / p.max, 0, 1);
+    if (a < 0.45) a *= 0.55 + 0.45 * Math.sin(S.T * 34 + p.tw);          // ระยิบระยับตอนใกล้ดับ
+    const sat = p.sat == null ? 100 : p.sat, col = 'hsla(' + p.hue + ',' + sat + '%,' + (56 + 34 * a * a) + '%,';
+    const tl = p.tl == null ? 0 : p.tl, tx = tl ? p.x - p.vx * tl : p.px, ty = tl ? p.y - p.vy * tl : p.py;
+    ctx.strokeStyle = col + a + ')'; ctx.lineWidth = p.r * (0.45 + 0.75 * a);
+    ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(p.x, p.y); ctx.stroke();
+    if (p.y < HZ && a > 0.25) {          // เงาสะท้อนในน้ำ
+      ctx.fillStyle = col + a * 0.2 + ')'; ctx.fillRect(p.x - 6, HZ + (HZ - p.y) * 0.55, 12, 3);
+    }
+  }
+  ctx.restore();
+}
+const NAGA = { img: new Image(), ok: false };
+NAGA.img.onload = () => { NAGA.ok = true; }; NAGA.img.src = 'art/cut/naga.png';
+function drawNagas() {
+  if (!S.nagas.length) return;
+  if (NAGA.ok) {            // พญานาคจากภาพที่ Codex ออกแบบ: หั่นเป็นแผ่นบาง ๆ แล้วเรียงตามเส้นคลื่น
+    const im = NAGA.img, N = 110, L = 1250, dh = L * im.height / im.width, sw = im.width / N, dw = L / N, v = (W + L + 400) / 13;
+    const wave = x => Math.sin(x * 0.0085 + S.T * 2.4) * 44 + Math.sin(x * 0.021 - S.T * 1.5) * 10;
+    for (const n of S.nagas) {
+      const fade = clamp(Math.min(n.age / 0.8, (13 - n.age) / 1.2), 0, 1), head = n.dir < 0 ? W + 200 - n.age * v : -200 + n.age * v;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';         // รัศมีเรืองแสงใต้ลำตัว
+      for (let i = 0; i < N; i += 5) {
+        const x = head - n.dir * i * dw, y = n.y + wave(x);
+        ctx.save(); ctx.globalAlpha = fade * 0.42; ctx.translate(x, y); ctx.scale(dh / 46 * 0.55, dh / 46 * 0.36); ctx.fillStyle = GR.riser; ctx.beginPath(); ctx.arc(0, 0, 46, 0, 6.283); ctx.fill(); ctx.restore();
+      }
+      ctx.restore();
+      ctx.save(); ctx.globalAlpha = fade;
+      for (let i = N - 1; i >= 0; i--) {
+        const K = 24, j = Math.max(i, K);                             // หัว (24 แผ่นแรก) แข็ง ไม่บิดตามคลื่น
+        let x = head - n.dir * j * dw, y = n.y + wave(x); const x2 = x - n.dir * dw, ang = Math.atan2((n.y + wave(x2)) - y, x2 - x);
+        if (i < K) { x -= Math.cos(ang) * (K - i) * dw; y -= Math.sin(ang) * (K - i) * dw; }
+        ctx.save(); ctx.translate(x, y);
+        if (n.dir < 0) ctx.rotate(ang); else { ctx.rotate(ang + Math.PI); ctx.scale(-1, 1); }
+        ctx.drawImage(im, i * sw, 0, Math.min(sw + 3, im.width - i * sw), im.height, 0, -dh * 0.72, dw + 3 * dw / sw, dh);
+        ctx.restore();
+      }
+      ctx.restore();
+      if (Math.random() < 0.8) spark(head + rnd(-30, 30), n.y + wave(head) + rnd(-40, 40), n.dir * rnd(40, 140), rnd(-60, 20), rnd(0.7, 1.3), rnd(40, 150), { r: 2.2, g: 20, drag: 0.8, tl: 0.03 });
+      if (Math.random() < 0.5) { const i = rnd(0, N), x = head - n.dir * i * dw; spark(x, n.y + wave(x) + rnd(-20, 30), rnd(-20, 20), rnd(-40, -10), rnd(0.5, 1), 48, { r: 1.8, g: 10, drag: 1, tl: 0.02 }); }
+    }
+    return;
+  }
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (const n of S.nagas) {
+    const head = n.dir > 0 ? -200 + n.age * 150 : W + 200 - n.age * 150, fade = clamp(Math.min(n.age / 1, (13 - n.age) / 1.5), 0, 1);
+    for (let i = 70; i >= 0; i--) {
+      const x = head - i * 15 * n.dir, y = n.y + Math.sin(x * 0.011 + S.T * 3.2) * 46 + Math.sin(x * 0.027 - S.T * 2) * 12;
+      const sz = (i === 0 ? 2.1 : 1.5 * (1 - i / 78)) * (i % 4 === 0 ? 1.18 : 1);
+      ctx.save(); ctx.globalAlpha = fade * (i === 0 ? 1 : 0.72); ctx.translate(x, y); ctx.scale(sz, sz * 0.8);
+      ctx.fillStyle = GR.riser; ctx.beginPath(); ctx.arc(0, 0, 46, 0, 6.283); ctx.fill(); ctx.restore();
+      if (i % 3 === 0) { ctx.fillStyle = 'hsla(' + (150 - i * 1.4) + ',90%,65%,' + fade * 0.5 + ')'; ctx.beginPath(); ctx.arc(x, y, 9 * sz, 0, 6.283); ctx.fill(); }
+      if (i === 0) {            // หงอนพญานาค
+        ctx.fillStyle = 'rgba(255,230,150,' + fade * 0.9 + ')';
+        for (let c = 0; c < 3; c++) { ctx.beginPath(); ctx.moveTo(x - 14 * n.dir * c, y - 20); ctx.lineTo(x - (10 + 14 * c) * n.dir, y - 78 + c * 14); ctx.lineTo(x - (26 + 14 * c) * n.dir, y - 16); ctx.fill(); }
+        if (Math.random() < 0.7) spark(x, y, rnd(-40, 40) - 60 * n.dir, rnd(-50, 10), rnd(0.6, 1.1), 48, { r: 2, g: 30, drag: 0.8, tl: 0.03 });
+      }
+    }
+  }
+  ctx.restore();
+}
+function drawStarShape(x, y, r, rot) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) { const a = rot + i * Math.PI / 5, rr2 = i % 2 ? r * 0.44 : r; ctx[i ? 'lineTo' : 'moveTo'](x + Math.sin(a) * rr2, y - Math.cos(a) * rr2); }
+  ctx.closePath();
+}
+function drawCard(cx, cy, w, h, sc, title, lines, sub, accent) {
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc);
+  const g = ctx.createLinearGradient(0, -h / 2, 0, h / 2); g.addColorStop(0, 'rgba(26,22,74,0.96)'); g.addColorStop(1, 'rgba(10,10,40,0.96)');
+  ctx.fillStyle = g; rr(-w / 2, -h / 2, w, h, 34); ctx.fill();
+  ctx.strokeStyle = accent; ctx.lineWidth = 5; ctx.stroke();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.font = '600 46px ' + FONT; ctx.fillStyle = '#ffd98a'; ctx.fillText(title, 0, -h / 2 + 82);
+  ctx.font = '500 52px ' + FONT; ctx.fillStyle = '#ffffff';
+  const lh = 68, y0 = -h / 2 + 82 + 92 + ((h - 82 - 92 - (sub ? 90 : 30)) - lines.length * lh) / 2;
+  lines.forEach((l, i) => ctx.fillText(l, 0, y0 + i * lh));
+  if (sub) { ctx.font = '400 38px ' + FONT; ctx.fillStyle = '#9fe6b8'; ctx.fillText(sub, 0, h / 2 - 44); }
+  ctx.restore();
+}
+function drawEvent() {
+  const ev = S.ev; if (!ev) return;
+  const a = ev.age, cx = W / 2, cy = 1060;
+  if (a < 1.2) {             // ดาวตก
+    const u = easeOut(a / 1.2), x = lerp(ev.sx, cx, u), y = lerp(120, cy, u);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const tx = lerp(ev.sx, cx, Math.max(0, u - 0.25)), ty = lerp(120, cy, Math.max(0, u - 0.25));
+    const g = ctx.createLinearGradient(tx, ty, x, y); g.addColorStop(0, 'rgba(255,240,180,0)'); g.addColorStop(1, 'rgba(255,240,180,0.9)');
+    ctx.strokeStyle = g; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
+    ctx.fillStyle = '#fff6c8'; ctx.shadowColor = '#ffd27a'; ctx.shadowBlur = 40; drawStarShape(x, y, 34, a * 6); ctx.fill(); ctx.restore();
+  } else {
+    const inS = easeOut(clamp((a - 1.2) / 0.45, 0, 1)), out = clamp((a - 6.2) / 0.5, 0, 1), sc = inS * (1 - out);
+    if (sc > 0.01) {
+      if (!ev.lines) ev.lines = wrap(ev.fortune, '500 52px ' + FONT, 780, 3);
+      const y = lerp(cy, H * 0.9, out * out);
+      drawCard(cx, y, 900, 250 + ev.lines.length * 68 + 50, sc, '⭐ ดาวของ ' + ev.name, ev.lines, null, '#ffd27a');
+    }
+  }
+}
+function drawQuiz() {
+  const q = S.quiz; if (!q.show) { q.pos = 0; return; }
+  // มีป๊อปอัพอื่นแทรก (ดาวคำทำนาย / แบนเนอร์ของขวัญ / พระจันทร์เต็มดวง) -> ควิซย่อแล้วเลื่อนขึ้นไปรอด้านบนเหมือนแจ้งเตือนในมือถือ
+  const busy = S.ev || S.fullT > 0 || G.banners.length;
+  q.pos = (q.pos || 0) + ((busy ? 1 : 0) - (q.pos || 0)) * Math.min(1, (S.dt || 0.016) * 7);
+  const e = q.pos * q.pos * (3 - 2 * q.pos);
+  const item = QUIZ[q.idx], lines = wrap(item[0], '500 52px ' + FONT, 800, 3), h = 260 + lines.length * 68 + 90, sc = lerp(1, 0.52, e);
+  drawCard(W / 2, lerp(1010, 196 + h * 0.52 / 2, e), 920, h, sc, 'ควิซลอยกระทง ข้อ ' + (q.idx + 1) + '/' + QUIZ.length, lines,
+    q.reveal ? 'เฉลย: ' + item[1] : 'ตอบในคอมเมนต์ได้เลย! เหลือ ' + Math.max(0, Math.ceil(q.t)) + ' วิ', q.reveal ? '#7fe6a6' : '#9db4ff');
+  const cy = lerp(1010, 196 + h * 0.52 / 2, e);
+  if (!q.reveal) {            // แถบเวลา
+    const bw = 820 * sc, f = clamp(q.t / S.qTime, 0, 1);
+    ctx.fillStyle = 'rgba(255,255,255,0.14)'; rr(W / 2 - bw / 2, cy + (h / 2 - 22) * sc, bw, 10 * sc, 5 * sc); ctx.fill();
+    ctx.fillStyle = f < 0.25 ? '#ff8a8a' : '#9db4ff'; rr(W / 2 - bw / 2, cy + (h / 2 - 22) * sc, Math.max(10 * sc, bw * f), 10 * sc, 5 * sc); ctx.fill();
+  } else if (q.winner) {
+    glowText('🎉 ' + q.winner + ' ตอบถูกเป็นคนแรก!', W / 2, cy + (h / 2 + 62) * sc, '600 ' + Math.round(44 * sc) + 'px ' + FONT, '#ffe9b0', 'rgba(0,0,0,0.9)', 10, 'center');
+  }
+}
+function drawHud() {
+  glowText('ลอยกระทงสู่ดวงดาว', 54, 268, '700 74px ' + FONT, '#ffd98a', 'rgba(255,170,60,0.85)', 26);
+  glowText('พิมพ์คำอธิษฐานในคอมเมนต์ เราลอยให้สด ๆ', 56, 326, '400 34px ' + FONT, '#f2f0ff', 'rgba(0,0,0,0.9)', 10);
+  glowText('ทุกคำอธิษฐานจะกลายเป็นดาวบนฟ้า', 56, 372, '300 30px ' + FONT, '#b9c0ff', 'rgba(0,0,0,0.9)', 10);
+  ctx.fillStyle = 'rgba(8,10,36,0.6)'; rr(54, 404, 440, 64, 32); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,214,120,0.4)'; ctx.lineWidth = 2; ctx.stroke();
+  glowText('🪷 คืนนี้ลอยแล้ว ' + S.total.toLocaleString('th-TH') + ' กระทง', 80, 448, '500 32px ' + FONT, '#ffe9b0', 'rgba(0,0,0,0.6)', 4);
+  // ป้ายบอกของขวัญ + อันดับผู้สนับสนุน
+  if ($('gLegend').checked) {
+    ctx.fillStyle = 'rgba(8,10,36,0.62)'; rr(24, 20, W - 48, 148, 30); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,214,120,0.4)'; ctx.lineWidth = 2; ctx.stroke();
+    glowText('🎁 ส่งของขวัญ = เอฟเฟกต์พิเศษพร้อมชื่อคุณ', W / 2, 62, '500 27px ' + FONT, '#ffd98a', 'rgba(0,0,0,0.8)', 4, 'center');
+    glowText('🌹 1+ กระทงทอง · ✨ 5+ ฝนดาวตก · 🏮 10+ โคมลอย · 🪷 30+ ขบวนกระทง', W / 2, 106, '400 25px ' + FONT, '#ffe9b0', 'rgba(0,0,0,0.8)', 4, 'center');
+    glowText('🎆 99+ พลุใหญ่ · 💖 199+ พลุหัวใจ · 🌕 500+ จันทร์เต็มดวง · 🐉 1000+ พญานาค', W / 2, 146, '400 25px ' + FONT, '#ffe9b0', 'rgba(0,0,0,0.8)', 4, 'center');
+  }
+  if ($('gBoard').checked && G.top.length) {
+    ctx.fillStyle = 'rgba(8,10,36,0.6)'; rr(54, 484, 440, 52 + G.top.length * 42, 22); ctx.fill();
+    glowText('💝 ผู้ร่วมจุดแสงคืนนี้', 78, 522, '500 28px ' + FONT, '#ffd98a', 'rgba(0,0,0,0.6)', 4);
+    G.top.forEach((t, i) => {
+      glowText(['🥇', '🥈', '🥉'][i] + ' ' + t[0], 78, 566 + i * 42, '400 28px ' + FONT, '#f2f0ff', 'rgba(0,0,0,0.6)', 4);
+      glowText(t[1].toLocaleString('th-TH'), 470, 566 + i * 42, '500 26px ' + FONT, '#ffe9b0', 'rgba(0,0,0,0.6)', 4, 'right');
+    });
+  }
+  // แบนเนอร์ขอบคุณของขวัญ
+  const bn = G.banners[0];
+  if (bn) {
+    const a = clamp(Math.min(bn.age / 0.4, (4.2 - bn.age) / 0.6), 0, 1), sc = 0.9 + 0.1 * easeOut(clamp(bn.age / 0.5, 0, 1));
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(W / 2, 690); ctx.scale(sc, sc);
+    ctx.fillStyle = 'rgba(40,20,70,0.92)'; rr(-470, -64, 940, 128, 64); ctx.fill();
+    ctx.strokeStyle = '#ffd27a'; ctx.lineWidth = 4; ctx.stroke();
+    glowText(bn.text, 0, -6, '600 46px ' + FONT, '#fff3c4', 'rgba(255,170,60,0.9)', 16, 'center');
+    glowText(bn.sub, 0, 40, '400 30px ' + FONT, '#ffffff', 'rgba(0,0,0,0.8)', 6, 'center');
+    ctx.restore();
+  }
+  if (S.fullT > 0) {
+    const a = clamp(Math.min(S.fullT, 14 - S.fullT) / 1.2, 0, 1), sc = 1 + 0.05 * Math.sin(S.T * 4);
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(W / 2, 960); ctx.scale(sc, sc);
+    ctx.fillStyle = 'rgba(8,10,36,0.6)'; rr(-430, -92, 860, 196, 40); ctx.fill();
+    glowText('พระจันทร์เต็มดวง!', 0, 0, '700 84px ' + FONT, '#fff3c4', 'rgba(255,170,60,1)', 44, 'center');
+    glowText('ขอบคุณทุกหัวใจในห้องนี้ 🌕', 0, 74, '400 44px ' + FONT, '#ffffff', 'rgba(0,0,0,0.9)', 12, 'center');
+    ctx.restore();
+  }
+}
+
+/* ---------- loop ---------- */
+function update(dt) {
+  S.T += dt; S.dt = dt;
+  for (const m of S.smokes) { m.age += dt; m.y -= 6 * dt; } S.smokes = S.smokes.filter(m => m.age < 4.5);
+  // คิวกระทง
+  S.spawnCd -= dt;
+  if (S.queue.length && S.spawnCd <= 0 && S.krathongs.length < 26) { spawn(S.queue.shift()); S.spawnCd = S.queue.length > 12 ? 1.4 : S.queue.length > 5 ? 2.2 : 3.6; }
+  for (const k of S.krathongs) {
+    k.age += dt; k.t += dt / k.dur;
+    if (k.gold && Math.random() < dt * 14) { const p = kPos(k); S.parts.push({ x: p.x + rnd(-70, 70) * p.s, y: p.y - rnd(0, 110) * p.s, px: 0, py: 0, vx: rnd(-12, 12), vy: -rnd(20, 60), life: 1, max: 1, hue: 46, g: 0, drag: 0.5, r: 2.2, spark: true }); }
+    if (k.t >= 1) { const p = kPos(k); S.risers.push({ x: p.x, y: p.y - 10, tx: rnd(60, W - 60), ty: rnd(70, HZ - 170), age: 0, name: k.name, gold: k.gold }); k.dead = true; }
+  }
+  S.krathongs = S.krathongs.filter(k => !k.dead);
+  for (const r of S.risers) { r.age += dt; if (r.age >= 3.2) { addStar(r.tx, r.ty, r.gold); S.flashes.push({ x: r.tx, y: r.ty, name: r.name, age: 0 }); r.dead = true; save(); } }
+  S.risers = S.risers.filter(r => !r.dead);
+  for (const f of S.flashes) f.age += dt; S.flashes = S.flashes.filter(f => f.age < 4);
+  if (G.banners.length) { G.banners[0].age += dt; if (G.banners[0].age >= 4.2) G.banners.shift(); }
+  // ควิซ: นับถอยหลัง -> เฉลยเอง -> ปิดเอง และออกข้อใหม่เองตามรอบ
+  const qz = S.quiz;
+  if (qz.show) {
+    if (!qz.reveal) { qz.t -= dt; if (qz.t <= 0) { qz.reveal = true; chime([784, 1047, 1319], 0.12); quizInfo(); } }
+    else { if (qz.hold == null) qz.hold = 8; qz.hold -= dt; if (qz.hold <= 0) { qz.show = false; quizInfo(); } }
+  } else if (S.qOn) { S.qAuto -= dt; if (S.qAuto <= 0) quizNext(); }
+  // สอยดาว
+  if (!S.ev && S.evQueue.length) { S.ev = S.evQueue.shift(); chime([1319, 1047, 880, 659], 0.1); }
+  if (S.ev) { S.ev.age += dt * (S.ev.age > 1.2 && S.ev.age < 6.2 && S.evQueue.length ? 1.9 : 1); if (S.ev.age >= 6.7) { floatKrathong(S.ev.name, S.ev.fortune, { star: true }); S.ev = null; } }
+  // พระจันทร์เต็มดวง
+  if (S.fullT > 0) {
+    S.fullT -= dt; S.fireCd -= dt; S.lanCd -= dt;
+    if (S.fireCd <= 0 && S.fullT > 3) { rocket(); if (Math.random() < 0.35) rocket(); S.fireCd = rnd(0.3, 0.55); }
+    if (S.lanCd <= 0 && S.fullT > 5) { lantern(3); S.lanCd = 0.5; }
+    if (S.fullT <= 0) { S.fullT = 0; S.moon = 0; save(); }
+  }
+  for (const r of S.rockets) {
+    r.age += dt; const u = Math.min(1, r.age / r.dur), e = 1 - Math.pow(1 - u, 2.2);
+    r.x = r.x0 + r.drift * e + Math.sin(r.age * 22) * 3; r.y = lerp(HZ - 30, r.ty, e);
+    star(r.x, r.y, rnd(-22, 22), rnd(40, 120), rnd(0.3, 0.7), [38, 90], { r: 1.8, g: 80, drag: 1 });
+    if (u >= 1) { explode(r.x, r.y, r.hue, r.type); r.dead = true; }
+  }
+  S.rockets = S.rockets.filter(r => !r.dead);
+  for (const n of S.nagas) n.age += dt; S.nagas = S.nagas.filter(n => n.age < 13);
+  for (const b of S.booms) b.age += dt; S.booms = S.booms.filter(b => b.age < 0.45);
+  for (const p of S.parts) {
+    if (p.crk && p.life - dt <= 0) for (let i = 0; i < 3; i++) star(p.x, p.y, rnd(-110, 110), rnd(-110, 110), rnd(0.2, 0.5), [48, 25], { r: 1.8, g: 40, st: true });
+    p.px = p.x; p.py = p.y; p.vx -= p.vx * p.drag * dt; p.vy += (p.g - p.vy * p.drag) * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
+  }
+  S.parts = S.parts.filter(p => p.life > 0); if (S.parts.length > 3600) S.parts.splice(0, S.parts.length - 3600);
+  for (const l of S.lanterns) { l.y += l.vy * dt; l.a = clamp(Math.min(l.a + dt, (l.y - 40) / 180), 0, 1); l.s *= 1 - 0.035 * dt; if (l.y < 60) { l.dead = true; addStar(l.x, rnd(60, 300)); } }
+  S.lanterns = S.lanterns.filter(l => !l.dead);
+  // ดาวตกประปราย
+  if (Math.random() < dt * 0.06) S.shoots.push({ x: rnd(100, 900), y: rnd(40, 300), vx: rnd(380, 620) * (Math.random() < 0.5 ? -1 : 1), vy: rnd(120, 220), life: 0.9 });
+  for (const s of S.shoots) { s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt; } S.shoots = S.shoots.filter(s => s.life > 0);
+}
+const Q = { s: 1, frames: 0, fps: 0 };
+function setQ(light) { Q.s = light ? 2 / 3 : 1; cv.width = Math.round(W * Q.s); cv.height = Math.round(H * Q.s); try { localStorage.setItem('lk_light', light ? '1' : ''); } catch (e) {} }
+function draw() {
+  ctx.setTransform(Q.s, 0, 0, Q.s, 0, 0); Q.frames++;
+  drawSky();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+  for (const s of S.shoots) { ctx.strokeStyle = 'rgba(255,255,255,' + s.life * 0.8 + ')'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - s.vx * 0.12, s.y - s.vy * 0.12); ctx.stroke(); }
+  ctx.restore();
+  drawMoon();
+  for (const l of S.lanterns) drawLantern(l);
+  drawBank(); drawWater();
+  if (S.fullT > 0) { ctx.fillStyle = 'rgba(255,220,150,' + 0.05 * (1 + Math.sin(S.T * 6)) + ')'; ctx.fillRect(0, HZ, W, H - HZ); }
+  const ks = S.krathongs.slice().sort((a, b) => b.t - a.t), ps = ks.map(kPos);
+  ks.forEach((k, i) => {     // วาดจากไกลมาใกล้: กระทงใกล้บังป้ายของกระทงไกล
+    drawLabel(k, ps[i], clamp(k.age / 1.5, 0, 1));
+    drawKrathong(k, ps[i], clamp(k.age / 1.5, 0, 1) * (k.t > 0.94 ? clamp((1 - k.t) / 0.06, 0, 1) : 1));
+  });
+  // แสงกระทงลอยขึ้นเป็นดาว
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (const r of S.risers) {
+    const u = easeOut(clamp(r.age / 3.2, 0, 1)), x = lerp(r.x, r.tx, u) + Math.sin(u * 9) * 26 * (1 - u), y = lerp(r.y, r.ty, u);
+    ctx.save(); ctx.translate(x, y); ctx.fillStyle = GR.riser; ctx.beginPath(); ctx.arc(0, 0, 46, 0, 6.283); ctx.fill(); ctx.restore();
+    if (Math.random() < 0.6) S.parts.push({ x, y, px: x, py: y, vx: rnd(-20, 20), vy: rnd(10, 50), life: 0.8, max: 0.8, hue: 44, g: 30, drag: 1, r: 1.8 });
+  }
+  ctx.restore();
+  for (const f of S.flashes) {
+    const a = clamp(Math.min(f.age / 0.4, (4 - f.age) / 1.2), 0, 1);
+    ctx.save(); ctx.globalAlpha = a; glowText('✦ ' + f.name, clamp(f.x, 150, W - 150), f.y - 22, '500 30px ' + FONT, '#fff3c4', 'rgba(255,180,80,0.9)', 14, 'center'); ctx.restore();
+  }
+  drawFireworks();
+  drawNagas();
+  drawParts();
+  drawHud(); drawQuiz(); drawEvent();
+}
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  update(dt); draw(); requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------- panel wiring ---------- */
+function doFloat() {
+  if (floatKrathong($('kName').value, $('kWish').value, { gold: $('kGold').checked })) { $('kName').value = ''; $('kWish').value = ''; $('kGold').checked = false; }
+  $('kName').focus();
+}
+function doStar() { if (starPick($('sName').value)) $('sName').value = ''; $('sName').focus(); }
+$('btnFloat').onclick = doFloat;
+$('kName').onkeydown = e => { if (e.key === 'Enter') { if ($('kWish').value.trim() || !$('kName').value.trim()) doFloat(); else $('kWish').focus(); } };
+$('kWish').onkeydown = e => { if (e.key === 'Enter') doFloat(); };
+$('btnStar').onclick = doStar;
+$('sName').onkeydown = e => { if (e.key === 'Enter') doStar(); };
+document.querySelectorAll('[data-moon]').forEach(b => b.onclick = () => addMoon(+b.dataset.moon));
+$('btnFull').onclick = () => addMoon(S.target);
+document.querySelectorAll('[data-gift]').forEach(b => b.onclick = () => { giftAct($('gName').value, +b.dataset.gift); $('gName').value = ''; });
+$('moonTarget').value = S.target;
+$('moonTarget').onchange = e => { S.target = Math.max(10, e.target.value | 0 || 100); e.target.value = S.target; S.moon = Math.min(S.moon, S.target - 1); save(); };
+$('btnFire').onclick = () => fireworks(4);
+$('btnLantern').onclick = () => { lantern(10); chime([523, 784], 0.08); };
+$('btnQNext').onclick = quizNext;
+$('btnQRand').onclick = () => { S.quiz.idx = (S.quiz.idx + 1 + ((Math.random() * (QUIZ.length - 1)) | 0)) % QUIZ.length - 1; quizNext(); };
+$('btnQReveal').onclick = () => { if (S.quiz.show) { S.quiz.reveal = true; chime([784, 1047, 1319], 0.12); quizInfo(); } };
+$('btnQClose').onclick = () => { S.quiz.show = false; quizInfo(); };
+$('wName').onkeydown = e => {
+  if (e.key !== 'Enter') return; const n = e.target.value.trim(); if (!n) return;
+  floatKrathong(n, 'ตอบควิซถูกเป็นคนแรก!', { gold: true }); e.target.value = '';
+  if (S.quiz.show) { S.quiz.reveal = true; S.quiz.winner = n; quizInfo(); }
+};
+$('btnHide').onclick = () => document.body.classList.toggle('hide');
+$('btnDemo').onclick = () => { DEMO.forEach((d, i) => floatKrathong(d[0], d[1], { gold: i === 3 })); };
+$('btnClear').onclick = () => { S.krathongs = []; S.queue = []; S.evQueue = []; S.ev = null; S.lanterns = []; S.parts = []; S.risers = []; S.rockets = []; S.booms = []; S.nagas = []; S.smokes = []; };
+$('btnReset').onclick = () => {
+  if (!confirm('รีเซ็ตยอดกระทง แสงจันทร์ และดาวของคืนนี้ทั้งหมด?')) return;
+  S.total = 0; S.moon = 0; S.rounds = 0; S.wishStars = 0; S.fullT = 0; G.sup.clear(); G.top = []; G.banners = []; S.stars = S.stars.filter(s => !s.wish); $('btnClear').onclick(); $('log').innerHTML = ''; save();
+};
+document.addEventListener('keydown', e => {
+  const tag = (e.target.tagName || '').toLowerCase(); if (tag === 'input' || e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === 'h') document.body.classList.toggle('hide');
+  else if (k === 'f') fireworks(4);
+  else if (k === 'l') lantern(10);
+  else if (k === 'q') quizNext();
+});
+setInterval(() => {
+  $('qCount').textContent = S.queue.length; $('onWater').textContent = S.krathongs.length; $('total').textContent = S.total;
+  $('moonNow').textContent = S.moon + '/' + S.target; $('rounds').textContent = S.rounds;
+}, 300);
+/* ---------- TikTok bridge ---------- */
+const qHit = (text, keys) => { const t = text.toLowerCase(); return keys.some(k => k[0] === '=' ? t === k.slice(1) : t.includes(k)); };
+const BLOCK = ['ควย', 'เหี้ย', 'สัส', 'เย็ด', 'แม่ง', 'fuck', 'http', 'www', '.com', 'ไลน์', 'line', 'พนัน', 'บาคาร่า', 'สล็อต', 'หวย', 'เว็บ', 'กู้เงิน'];
+const TT = { pend: [], seen: new Map(), starCd: new Map(), likeAcc: 0, nIn: 0, nDrop: 0, texts: [] };
+const ttMode = () => (document.querySelector('input[name=ttMode]:checked') || {}).value || 'off';
+try { $('ttBlock').value = localStorage.getItem('lk_block') || ''; } catch (e) {}
+try { $('ttRand').value = localStorage.getItem('lk_rand') || 4; } catch (e) { $('ttRand').value = 4; }
+$('ttRand').onchange = e => { try { localStorage.setItem('lk_rand', e.target.value); } catch (er) {} };
+$('ttBlock').onchange = e => { try { localStorage.setItem('lk_block', e.target.value); } catch (er) {} };
+function blocked(t) {
+  const low = t.toLowerCase(), extra = $('ttBlock').value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  if (/\d{6,}/.test(low.replace(/[\s-]/g, ''))) return true;                 // เบอร์โทร/เลขบัญชี
+  return BLOCK.concat(extra).some(w => low.includes(w));
+}
+function renderPend() {
+  const box = $('ttPend'); box.innerHTML = '';
+  TT.pend.forEach((p, i) => {
+    const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;align-items:center;border-bottom:1px dashed #262b52;padding:3px 0;font-size:13px';
+    const tx = document.createElement('span'); tx.style.flex = '1'; tx.textContent = p.nick + ': ' + p.comment;
+    const ok = document.createElement('button'); ok.textContent = '✓'; ok.style.cssText = 'margin:0;padding:2px 10px;background:#1f5a36';
+    const no = document.createElement('button'); no.textContent = '✗'; no.style.cssText = 'margin:0;padding:2px 10px';
+    ok.onclick = () => { floatKrathong(p.nick, p.comment); TT.pend.splice(TT.pend.indexOf(p), 1); renderPend(); };
+    no.onclick = () => { TT.pend.splice(TT.pend.indexOf(p), 1); renderPend(); };
+    row.append(tx, ok, no); box.append(row);
+  });
+  $('ttPendN').textContent = TT.pend.length;
+}
+$('ttAll').onclick = () => { TT.pend.forEach(p => floatKrathong(p.nick, p.comment)); TT.pend = []; renderPend(); };
+$('ttNone').onclick = () => { TT.pend = []; renderPend(); };
+function onChat(m) {
+  const mode = ttMode(); if (mode === 'off') return;
+  const nick = String(m.nick || 'คนดู').slice(0, 24), uid = m.uid || nick, now = Date.now();
+  const text = String(m.comment || '').replace(/\s+/g, ' ').trim().slice(0, 70);
+  const flt = $('ttFilter').checked;
+  TT.nIn++;
+  const drop = () => { TT.nDrop++; };
+  if (!text) return drop();
+  if (flt && (blocked(text) || blocked(nick))) return drop();
+  // ควิซ: คนแรกที่ตอบถูกได้กระทงทอง
+  if (S.quiz.show && !S.quiz.reveal && qHit(text, QUIZ[S.quiz.idx][2])) {
+    S.quiz.reveal = true; S.quiz.winner = nick; quizInfo(); chime([784, 1047, 1319], 0.12);
+    floatKrathong(nick, 'ตอบควิซถูกเป็นคนแรก!', { gold: true }); return;
+  }
+  if ($('ttStar').checked && text.includes('สอยดาว')) {
+    if ((flt && now - (TT.starCd.get(uid) || 0) < 120000) || S.evQueue.length > 8) return drop();
+    TT.starCd.set(uid, now); starPick(nick); return;
+  }
+  if (flt) {
+    if (text.length < 4 || !/[ก-ฮa-zA-Z]{2,}/.test(text) || /^(5{2,}|ฮ่า+|อิอิ|hi+|hello|สวัสดี(ค่ะ|ครับ)?)$/i.test(text)) return drop();
+    if (now - (TT.seen.get(uid) || 0) < 60000) return drop();                // คนละ 1 กระทงต่อนาที
+    if (TT.texts.includes(text)) return drop();                              // ข้อความซ้ำ (สแปม)
+    TT.seen.set(uid, now); TT.texts.push(text); if (TT.texts.length > 40) TT.texts.shift();
+  }
+  const rn = +$('ttRand').value | 0;                                         // สุ่มแจกดาวคำทำนายให้คนที่คอมเมนต์
+  if (rn > 0 && Math.random() < 1 / rn && S.evQueue.length < 6) starPick(nick);
+  if (mode === 'auto') { if (S.queue.length >= 80) { S.queue.shift(); TT.nDrop++; } floatKrathong(nick, text); }
+  else { TT.pend.push({ nick, comment: text }); if (TT.pend.length > 40) TT.pend.shift(); renderPend(); }
+}
+function onMsg(m) {
+  if (m.type === 'status') {
+    $('ttStatus').textContent = m.text; $('ttDot').style.color = m.state === 'connected' ? '#5fe08a' : m.state === 'ended' ? '#777' : '#ffb347';
+  } else if (m.type === 'chat') onChat(m);
+  else if (m.type === 'like') {
+    if (ttMode() === 'off' || !$('ttLike').checked) return;
+    TT.likeAcc += Math.max(1, m.count | 0); const pts = Math.floor(TT.likeAcc / 10);   // 10 ไลก์ = 1 แต้มแสงจันทร์
+    if (pts > 0) { TT.likeAcc -= pts * 10; addMoon(pts); }
+  } else if (m.type === 'gift') {
+    if (ttMode() === 'off' || !$('ttGift').checked) return;
+    giftAct(m.nick, m.coins || 1);
+  }
+}
+function ttConnect() {
+  let ws;
+  try { ws = new WebSocket('ws://' + (location.protocol === 'http:' ? location.host : 'localhost:8787')); } catch (e) { setTimeout(ttConnect, 5000); return; }
+  ws.onmessage = e => { try { onMsg(JSON.parse(e.data)); } catch (er) {} };
+  ws.onclose = () => { $('ttStatus').textContent = 'ยังไม่ได้เปิดตัวเชื่อม (เปิด start-live.bat)'; $('ttDot').style.color = '#777'; setTimeout(ttConnect, 5000); };
+  ws.onerror = () => { try { ws.close(); } catch (e) {} };
+}
+ttConnect();
+setInterval(() => { $('ttIn').textContent = TT.nIn; $('ttDrop').textContent = TT.nDrop; }, 500);
+try { S.dur = +localStorage.getItem('lk_dur') || 75; } catch (e) { S.dur = 75; }
+$('dur').value = S.dur;
+$('dur').onchange = e => { S.dur = clamp(+e.target.value || 75, 20, 240); e.target.value = S.dur; try { localStorage.setItem('lk_dur', S.dur); } catch (er) {} };
+try { S.qEvery = +localStorage.getItem('lk_qevery') || 10; S.qTime = +localStorage.getItem('lk_qtime') || 20; S.qOn = localStorage.getItem('lk_qon') !== '0'; } catch (e) {}
+S.qAuto = S.qEvery * 60; $('qEvery').value = S.qEvery; $('qTime').value = S.qTime; $('qOn').checked = S.qOn;
+const qSave = () => { try { localStorage.setItem('lk_qevery', S.qEvery); localStorage.setItem('lk_qtime', S.qTime); localStorage.setItem('lk_qon', S.qOn ? '1' : '0'); } catch (e) {} };
+$('qEvery').onchange = e => { S.qEvery = clamp(+e.target.value || 10, 1, 120); e.target.value = S.qEvery; S.qAuto = S.qEvery * 60; qSave(); };
+$('qTime').onchange = e => { S.qTime = clamp(+e.target.value || 20, 5, 120); e.target.value = S.qTime; qSave(); };
+$('qOn').onchange = e => { S.qOn = e.target.checked; qSave(); };
+setInterval(quizInfo, 500);
+let light0 = false; try { light0 = !!localStorage.getItem('lk_light'); } catch (e) {}
+$('light').checked = light0; setQ(light0); $('light').onchange = e => setQ(e.target.checked);
+setInterval(() => { Q.fps = Q.frames; Q.frames = 0; $('fps').textContent = Q.fps; $('fps').style.color = Q.fps < 40 ? '#ff8a8a' : ''; }, 1000);
+window.__lk = S; window.__tt = TT; window.__q = Q;
+})();
+</script>
+</body>
+</html>
